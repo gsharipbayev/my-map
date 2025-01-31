@@ -2,12 +2,13 @@
 <html>
 <head>
   <meta charset="utf-8"/>
-  <title>My Leaflet Map</title>
+  <title>Leaflet Map (Sheets + Apps Script)</title>
+  
   <!-- Подключаем Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"/>
   
   <style>
-    /* Делаем карту на весь экран */
+    /* Карта на весь экран */
     html, body {
       margin: 0;
       padding: 0;
@@ -25,39 +26,65 @@
   <!-- Подключаем Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
   <script>
-    // 1) Инициализируем карту (координаты - центр в Нур-Султане)
+    // 1) Инициализируем карту Leaflet
     var map = L.map('map').setView([51.09, 71.45], 11);
-
-    // 2) Подключаем слой тайлов (OpenStreetMap, например)
+    
+    // 2) Подключаем тайлы (OpenStreetMap)
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19
     }).addTo(map);
 
-    // 3) Ваша ссылка на Apps Script (GeoJSON):
-    //    ВАЖНО заменить на публичный URL (не доменный)!
-    var url = "https://script.google.com/a/macros/innoforce.kz/s/AKfycbxv4r3IKy0lzPyul1YLyvdPv8zNEHvRpuIfKaQydyckTizE-x3YwUpgpx6w9DrcS9JX/exec";
+    // 3) Ваша ссылка на Apps Script (JSON)
+    var url = "https://script.google.com/macros/s/AKfycbwMyRvXh9tPxc0jUdSKv7BqDa9g33vibU8wP6eRNBLMvkQnLfxy7B5SOZ1qsOP3qwk_/exec";
 
-    // 4) Загружаем данные (fetch)
+    // 4) Загружаем JSON
     fetch(url)
       .then(response => response.json())
       .then(data => {
-        // data - это ваш GeoJSON
-        // Создаём Leaflet-слой
-        L.geoJSON(data, {
-          onEachFeature: function (feature, layer) {
-            var props = feature.properties;
-            // Пример всплывающего окна
-            layer.bindPopup(
-              "Улица: " + props.street + "<br>" +
-              "Район: " + props.region
-            );
+        // data - массив [{lat, lng, street, region, tablo, passenger}, ...]
+
+        data.forEach(function(item) {
+          var lat = item.lat;
+          var lng = item.lng;
+          // Определяем цвет по item.tablo
+          // Пусто -> белый
+          // "+" -> желтый
+          // "*" -> красный
+          // "M"/"М" -> зеленый
+          var fillColor = "white";
+          if (item.tablo === "+") {
+            fillColor = "yellow";
+          } else if (item.tablo === "*") {
+            fillColor = "red";
+          } else if (item.tablo === "M" || item.tablo === "М") {
+            fillColor = "green";
           }
-        }).addTo(map);
+
+          // Толщина обводки (weight=5), если passenger == "+"
+          var weight = (item.passenger === "+") ? 5 : 1;
+
+          // Добавим круг (CircleMarker) в Leaflet
+          var marker = L.circleMarker([lat, lng], {
+            radius: 8,
+            fillColor: fillColor,
+            fillOpacity: 1,
+            color: "black",
+            weight: weight
+          }).addTo(map);
+
+          // Всплывающее окошко (popup)
+          var popupText = 
+            "<b>Улица:</b> " + (item.street || "") +
+            "<br><b>Район:</b> " + (item.region || "") +
+            "<br><b>Табло:</b> " + (item.tablo || "") +
+            "<br><b>Пассажирообр.:</b> " + (item.passenger || "");
+          
+          marker.bindPopup(popupText);
+        });
       })
       .catch(err => {
-        console.error("Ошибка загрузки GeoJSON:", err);
+        console.error("Ошибка при загрузке JSON:", err);
       });
   </script>
 </body>
 </html>
-            
