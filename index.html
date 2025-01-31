@@ -34,51 +34,121 @@
       maxZoom: 19
     }).addTo(map);
 
-    // 3) Ваша ссылка на Apps Script (JSON)
+    // 3) Ваша (обновлённая) ссылка на Apps Script (JSON)
+    //    Предположим, в ответе JSON теперь объекты вида:
+    //    {
+    //      "street": "ул. Абая",        // B
+    //      "stopName": "ТЦ Мега",       // C
+    //      "direction": "в центр",      // D
+    //      "region": "Есильский",       // E
+    //      "lat": "51.10",             // F
+    //      "lng": "71.45",             // G
+    //      "stopId": "12345",          // H
+    //      "tablo": "есть",            // M (или "", если табло нет)
+    //      "passenger": "+",           // P (или "", если не пассажирообр.)
+    //      "status": "работает",       // Q
+    //      "reklama": "LED"            // R
+    //    }
     var url = "https://script.google.com/macros/s/AKfycbwMyRvXh9tPxc0jUdSKv7BqDa9g33vibU8wP6eRNBLMvkQnLfxy7B5SOZ1qsOP3qwk_/exec";
 
-    // 4) Загружаем JSON
+    // 4) Функция, которая по значениям столбца R отдаёт цвет обводки
+    function getBorderColor(item) {
+      // Если пассажирообр. = "+", обводка чёрная, игнорируем R
+      if (item.passenger === "+") {
+        return "black";
+      }
+
+      // Иначе смотрим рекламу (R)
+      switch (item.reklama) {
+        case "LED":
+          return "green";
+        case "Lightbox":
+          return "red";
+        case "X":
+          return "white";
+        default:
+          return "black"; // по умолчанию
+      }
+    }
+
+    // 5) Функция, которая по статусу (Q) возвращает цвет заливки (для остановок с табло)
+    function getFillColorByStatus(status) {
+      switch (status) {
+        case "работает":
+          return "#00ff00"; // ярко-зелёный
+        case "не работает":
+          return "#ff0000"; // ярко-красный
+        case "демонтирован":
+          return "gray";    // серый
+        default:
+          return "white";   // по умолчанию белый (или любой)
+      }
+    }
+
+    // 6) Загружаем JSON
     fetch(url)
       .then(response => response.json())
       .then(data => {
-        // data - массив [{lat, lng, street, region, tablo, passenger}, ...]
-
+        // data - массив объектов со столбцами B..R
         data.forEach(function(item) {
-          var lat = item.lat;
-          var lng = item.lng;
-          // Определяем цвет по item.tablo
-          // Пусто -> белый
-          // "+" -> желтый
-          // "*" -> красный
-          // "M"/"М" -> зеленый
-          var fillColor = "white";
-          if (item.tablo === "+") {
-            fillColor = "yellow";
-          } else if (item.tablo === "*") {
-            fillColor = "red";
-          } else if (item.tablo === "M" || item.tablo === "М") {
-            fillColor = "green";
+          // Преобразуем координаты в числа (если в таблице они строкой)
+          var lat = parseFloat(item.lat);
+          var lng = parseFloat(item.lng);
+          var latLng = [lat, lng];
+
+          // Вычисляем цвета (заливка/обводка)
+          var borderColor = getBorderColor(item);
+
+          // Логика формы:
+          // 1) Есть табло (item.tablo не пустое)? → квадрат
+          // 2) Нет табло → круг (белый)
+          if (item.tablo) {
+            // === КВАДРАТНЫЙ МАРКЕР ===
+            var fillColor = getFillColorByStatus(item.status);
+
+            // Используем L.marker с L.divIcon для "квадрата"
+            var squareIcon = L.divIcon({
+              html: '<div style="width:16px; height:16px; background-color:' + fillColor + ';'
+                  + ' border: 2px solid ' + borderColor + ';'
+                  + ' border-radius: 0;' // убираем скругления для квадрата
+                  + '"></div>',
+              iconSize: [16, 16],
+              iconAnchor: [8, 8], // чтобы центрировать иконку на точке
+              className: ''       // убираем встроенные классы Leaflet, если не нужны
+            });
+
+            var marker = L.marker(latLng, { icon: squareIcon }).addTo(map);
+            
+          } else {
+            // === КРУГЛЫЙ МАРКЕР (без табло) ===
+            // Всегда белый fillColor (по условию)
+            var marker = L.circleMarker(latLng, {
+              radius: 8,
+              fillColor: "white",
+              fillOpacity: 1,
+              color: borderColor,
+              weight: 2
+            }).addTo(map);
           }
 
-          // Толщина обводки (weight=5), если passenger == "+"
-          var weight = (item.passenger === "+") ? 5 : 1;
-
-          // Добавим круг (CircleMarker) в Leaflet
-          var marker = L.circleMarker([lat, lng], {
-            radius: 8,
-            fillColor: fillColor,
-            fillOpacity: 1,
-            color: "black",
-            weight: weight
-          }).addTo(map);
-
           // Всплывающее окошко (popup)
-          var popupText = 
-            "<b>Улица:</b> " + (item.street || "") +
-            "<br><b>Район:</b> " + (item.region || "") +
-            "<br><b>Табло:</b> " + (item.tablo || "") +
-            "<br><b>Пассажирообр.:</b> " + (item.passenger || "");
-          
+          // 1) Название остановки (C)
+          // 2) Улица (B)
+          // 3) Направление (D)
+          // 4) Район (E)
+          // 5) ID Остановки (H)
+          // 6) Статус (Q)
+          // 7) Реклама (R)
+          var popupText =
+            "<b>Название остановки:</b> " + (item.stopName || "") + "<br>" +
+            "<b>Улица:</b> " + (item.street || "") + "<br>" +
+            "<b>Направление:</b> " + (item.direction || "") + "<br>" +
+            "<b>Район:</b> " + (item.region || "") + "<br>" +
+            "<b>ID Остановки:</b> " + (item.stopId || "") + "<br>" +
+            "<b>Статус:</b> " + (item.status || "") + "<br>" +
+            "<b>Реклама:</b> " + (item.reklama || "");
+
+          // Привязываем попап к маркеру
           marker.bindPopup(popupText);
         });
       })
