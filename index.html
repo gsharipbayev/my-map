@@ -2,16 +2,12 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>Leaflet Map с номерами столбцов и уведомлением</title>
+    <title>Leaflet Map с индексами A=0 и отладкой</title>
     <!-- Подключаем Leaflet CSS -->
-    <link
-      rel="stylesheet"
-      href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
-    />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
     <style>
       /* Карта на весь экран */
-      html,
-      body {
+      html, body {
         margin: 0;
         padding: 0;
         height: 100%;
@@ -28,7 +24,7 @@
         box-shadow: 0 0 5px rgba(0, 0, 0, 0.65);
         cursor: pointer;
       }
-      /* Панель легенды (снизу) */
+      /* Панель легенды (нижняя) */
       .legend-panel {
         position: fixed;
         bottom: 0;
@@ -42,7 +38,7 @@
         overflow: auto;
         z-index: 1000;
       }
-      /* Для мобильных устройств увеличиваем значки */
+      /* Для мобильных устройств – увеличенные размеры */
       @media (max-width: 768px) {
         .custom-marker {
           width: 32px !important;
@@ -59,42 +55,44 @@
   </head>
   <body>
     <div id="map"></div>
-    <!-- Панель легенды (появляется при нажатии на иконку) -->
+    <!-- Панель для легенды -->
     <div id="legendPanel" class="legend-panel"></div>
     <!-- Подключаем Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
     <script>
-      /**************************************************************
-       * ПРИНЯТОЕ СООТВЕТСТВИЕ НОМЕРОВ СТОЛБЦОВ (индексация с 0):
-       *
-       * Если данные приходят как массив, то:
-       *
+      /***************************************************************
+       * Схема индексов (A = 0):
+       * 
        * Для popup:
-       *   - Столбец B (Улица)         → index 0
-       *   - Столбец C (Название)       → index 1
-       *   - Столбец D (Направление)    → index 2
-       *   - Столбец E (Район)          → index 3
-       *   - Столбец H (ID Остановки)   → index 6
-       *   - Столбец Q (Статус)         → index 16
-       *   - Столбец R (Реклама)        → index 17
+       *   Улица           → столбец B → index 1
+       *   Название        → столбец C → index 2
+       *   Направление     → столбец D → index 3
+       *   Район           → столбец E → index 4
+       *   ID Остановки    → столбец H → index 7
+       *   Статус          → столбец Q → index 16
+       *   Реклама         → столбец R → index 17
        *
-       * Для формирования маркера:
-       *   - Столбец M (форма: "+" или "медиаборд") → index 12
-       *   - Столбец Q (Статус для цвета заливки)    → index 16
-       *   - Столбец R (Реклама для обводки)          → index 17
-       *   - Столбец S (Питание для значка молнии)    → index 18
+       * Для иконки маркера:
+       *   Форма           → столбец M → index 12 
+       *      ("+" → круг, "медиаборд" → квадрат)
+       *   Статус          → столбец Q → index 16 (цвет заливки)
+       *      "снят табло" → серый,
+       *      "демонтирован" → чёрный,
+       *      "не работает" → красный,
+       *      "работает"   → ярко зелёный.
+       *   Реклама         → столбец R → index 17 (цвет и толщина обводки)
+       *      "LED" → жирная красная,
+       *      "lightbox" → жирная синяя,
+       *      "x" → жирная зелёная.
+       *   Питание         → столбец S → index 18 
+       *      "питание есть" → значок молнии зелёного цвета,
+       *      "нет питания"  → значок молнии красного цвета.
        *
        * Для уведомления:
-       *   - Столбец U (email пользователя) → index 20
-       *
-       * Координаты:
-       *   Если объект имеет свойства lat и lng, они используются;
-       *   иначе предполагается, что:
-       *     - lat находится в массиве по индексу 0,
-       *     - lng – по индексу 1.
-       *
-       * (Если ваша структура данных иная, отредактируйте номера индексов ниже.)
-       **************************************************************/
+       *   Email           → столбец U → index 20.
+       *   Если статус (index 16) равен "работает" и email равен
+       *   "gsharipbayev@innoforce.kz", то добавляется уведомление.
+       ***************************************************************/
 
       // Инициализация карты
       var map = L.map("map").setView([51.09, 71.45], 11);
@@ -105,12 +103,15 @@
       // Массив для хранения маркеров (для поиска)
       var markers = [];
 
-      // Функция определения мобильного устройства
+      // Массив для накопления уведомлений
+      var notifications = [];
+
+      // Определяем, мобильное ли устройство
       function isMobile() {
         return window.innerWidth <= 768;
       }
 
-      // Функция нормализации строк (обрезка пробелов, перевод в нижний регистр)
+      // Функция нормализации строки (обрезка пробелов и перевод в нижний регистр)
       function normalize(str) {
         return str ? str.toString().trim().toLowerCase() : "";
       }
@@ -120,8 +121,8 @@
         var st = normalize(status);
         if (st === "снят табло") return "gray";
         if (st === "демонтирован") return "black";
-        if (st === "не работает") return "#FF0000"; // красный
-        if (st === "работает") return "#00FF00"; // ярко зеленый
+        if (st === "не работает") return "#FF0000";  // красный
+        if (st === "работает") return "#00FF00";      // ярко зеленый
         return "white";
       }
 
@@ -151,48 +152,34 @@
       function getLightningHTML(power) {
         var p = normalize(power);
         if (p === "питание есть") {
-          return (
-            '<div class="lightning" style="position:absolute; bottom:-2px; right:-2px; color:green; font-size:' +
-            (isMobile() ? "16px" : "10px") +
-            ';">&#9889;</div>'
-          );
+          return '<div class="lightning" style="position:absolute; bottom:-2px; right:-2px; color:green; font-size:' +
+                 (isMobile() ? "16px" : "10px") +
+                 ';">&#9889;</div>';
         } else if (p === "нет питания") {
-          return (
-            '<div class="lightning" style="position:absolute; bottom:-2px; right:-2px; color:red; font-size:' +
-            (isMobile() ? "16px" : "10px") +
-            ';">&#9889;</div>'
-          );
+          return '<div class="lightning" style="position:absolute; bottom:-2px; right:-2px; color:red; font-size:' +
+                 (isMobile() ? "16px" : "10px") +
+                 ';">&#9889;</div>';
         }
         return "";
       }
 
-      // Функция для создания иконки маркера (используем данные из массива row)
+      // Функция для создания иконки маркера (используя данные строки row)
       function createMarkerIcon(row) {
         var markerSize = isMobile() ? 32 : 16;
-        var shape = getShape(row[12]);
-        var fillColor = getFillColor(row[16]);
-        var borderColor = getBorderColor(row[17]);
-        var borderWidth = getBorderWidth(row[17]);
-        var borderRadius = shape === "circle" ? "50%" : "0%";
-        var lightningHTML = getLightningHTML(row[18]);
+        var shape = getShape(row[12]);           // столбец M
+        var fillColor = getFillColor(row[16]);     // столбец Q
+        var borderColor = getBorderColor(row[17]); // столбец R
+        var borderWidth = getBorderWidth(row[17]); // столбец R
+        var borderRadius = (shape === "circle") ? "50%" : "0%";
+        var lightningHTML = getLightningHTML(row[18]); // столбец S
 
         var html =
-          '<div class="custom-marker" style="position:relative; width:' +
-          markerSize +
-          "px; height:" +
-          markerSize +
-          'px;">' +
-          '<div style="width:100%; height:100%; background-color:' +
-          fillColor +
-          "; border:" +
-          borderWidth +
-          "px solid " +
-          borderColor +
-          "; border-radius:" +
-          borderRadius +
-          ';"></div>' +
-          lightningHTML +
-          "</div>";
+          '<div class="custom-marker" style="position:relative; width:' + markerSize + 'px; height:' + markerSize + 'px;">' +
+            '<div style="width:100%; height:100%; background-color:' + fillColor +
+            '; border:' + borderWidth + 'px solid ' + borderColor +
+            '; border-radius:' + borderRadius + ';"></div>' +
+            lightningHTML +
+          '</div>';
 
         return L.divIcon({
           html: html,
@@ -202,45 +189,56 @@
         });
       }
 
-      // URL к задеплоенному Apps Script (замените на свой)
-      var url =
-        "https://script.google.com/macros/s/AKfycbw02IfURjZsCIZsckiRYKt_kawJ4OlazkNILhw4cGwSj-9cdAXzbP6AtNWWr3zNFnky/exec";
-
-      // Массив для хранения уведомлений
-      var notifications = [];
+      // URL к вашему Apps Script (замените, если необходимо)
+      var url = "https://script.google.com/macros/s/AKfycbw02IfURjZsCIZsckiRYKt_kawJ4OlazkNILhw4cGwSj-9cdAXzbP6AtNWWr3zNFnky/exec";
 
       // Загрузка данных из Apps Script
       fetch(url)
-        .then((response) => response.json())
-        .then((data) => {
-          console.log("Данные из Apps Script:", data);
-          data.forEach(function (item) {
-            // Определяем координаты:
-            // Если объект имеет свойства lat и lng – используем их,
-            // иначе считаем, что координаты находятся в массиве по индексам 0 и 1.
-            var lat =
-              item.lat !== undefined
-                ? parseFloat(item.lat)
-                : parseFloat(item[0]);
-            var lng =
-              item.lng !== undefined
-                ? parseFloat(item.lng)
-                : parseFloat(item[1]);
-            if (isNaN(lat) || isNaN(lng)) return;
-
-            // Остальные данные берем из массива.
-            // Если данные находятся в свойстве data, используем его, иначе – сам item.
+        .then(response => response.json())
+        .then(data => {
+          console.log("Получены данные из Apps Script:", data);
+          // Проверьте в консоли, какая структура у data:
+          // Например, data может быть объектом { data: [...] } или массивом.
+          data.forEach(function(item, index) {
+            console.log("Элемент", index, ":", item);
+            // Если данные строки находятся в item.data, используем их,
+            // иначе считаем, что item — это массив
             var row = item.data || item;
+            if (!Array.isArray(row)) {
+              // Если row не массив, попробуем получить значения через Object.values()
+              row = Object.values(row);
+            }
+            console.log("Обработка строки, длина =", row.length, "данные:", row);
+
+            // Определяем координаты:
+            // Если объект имеет свойства lat и lng, используем их,
+            // иначе считаем, что координаты находятся в row[0] и row[1]
+            var lat = (item.lat !== undefined)
+                        ? parseFloat(item.lat)
+                        : parseFloat(row[0]);
+            var lng = (item.lng !== undefined)
+                        ? parseFloat(item.lng)
+                        : parseFloat(row[1]);
+            if (isNaN(lat) || isNaN(lng)) {
+              console.warn("Неверные координаты для строки", index, row);
+              return;
+            }
+
             // Для popup:
-            // Улица – index 0, Название – index 1, Направление – index 2, Район – index 3,
-            // ID – index 6, Статус – index 16, Реклама – index 17.
-            var street = row[0] || "";
-            var stopName = row[1] || "";
-            var direction = row[2] || "";
-            var region = row[3] || "";
-            var stopId = row[6] || "";
-            var status = row[16] || "";
-            var reklama = row[17] || "";
+            // Улица: столбец B (index 1)
+            // Название остановки: столбец C (index 2)
+            // Направление: столбец D (index 3)
+            // Район: столбец E (index 4)
+            // ID Остановки: столбец H (index 7)
+            // Статус: столбец Q (index 16)
+            // Реклама: столбец R (index 17)
+            var street   = row[1]  || "";
+            var stopName = row[2]  || "";
+            var direction= row[3]  || "";
+            var region   = row[4]  || "";
+            var stopId   = row[7]  || "";
+            var status   = row[16] || "";
+            var reklama  = row[17] || "";
 
             // Создаем маркер с иконкой
             var icon = createMarkerIcon(row);
@@ -250,69 +248,47 @@
 
             // Формируем содержимое popup
             var popupHtml =
-              "<b>Название остановки:</b> " +
-              stopName +
-              "<br>" +
-              "<b>Улица:</b> " +
-              street +
-              "<br>" +
-              "<b>Направление:</b> " +
-              direction +
-              "<br>" +
-              "<b>Район:</b> " +
-              region +
-              "<br>" +
-              "<b>ID Остановки:</b> " +
-              stopId +
-              "<br>" +
-              "<b>Статус:</b> " +
-              status +
-              "<br>" +
-              "<b>Реклама:</b> " +
-              reklama;
+              "<b>Название остановки:</b> " + stopName + "<br>" +
+              "<b>Улица:</b> " + street + "<br>" +
+              "<b>Направление:</b> " + direction + "<br>" +
+              "<b>Район:</b> " + region + "<br>" +
+              "<b>ID Остановки:</b> " + stopId + "<br>" +
+              "<b>Статус:</b> " + status + "<br>" +
+              "<b>Реклама:</b> " + reklama;
             marker.bindPopup(popupHtml);
 
-            // Если статус (index 16) равен "работает" и email (из столбца U, index 20)
-            // равен "gsharipbayev@innoforce.kz" – добавляем уведомление.
+            // Если статус (index 16) равен "работает" и email (столбец U, index 20)
+            // равен "gsharipbayev@innoforce.kz", добавляем уведомление.
             var userEmail = row[20] || "";
-            if (
-              normalize(status) === "работает" &&
-              normalize(userEmail) === "gsharipbayev@innoforce.kz"
-            ) {
+            if (normalize(status) === "работает" &&
+                normalize(userEmail) === "gsharipbayev@innoforce.kz") {
               var notificationMsg =
-                "Пользователь " +
-                userEmail +
-                " сделал изменение. " +
-                "Остановка номер ID: " +
-                stopId +
-                ", наименование: " +
-                stopName +
-                " изменен статус (Столбец Q): " +
-                status;
+                "Пользователь " + userEmail +
+                " сделал изменение. Остановка номер ID: " + stopId +
+                ", наименование: " + stopName +
+                " изменен статус (Столбец Q): " + status;
               notifications.push(notificationMsg);
             }
           });
         })
-        .catch((err) => {
+        .catch(err => {
           console.error("Ошибка при загрузке JSON:", err);
         });
 
-      /*******************
+      /*********************
        * Пользовательские контролы
-       *******************/
+       *********************/
 
-      // 1. Контрол уведомлений (левый верхний угол)
+      // Контрол уведомлений (левый верхний угол)
       var NotificationControl = L.Control.extend({
-        options: {
-          position: "topleft"
-        },
-        onAdd: function (map) {
+        options: { position: "topleft" },
+        onAdd: function(map) {
           var container = L.DomUtil.create("div", "custom-control");
           container.innerHTML = "&#128276;"; // иконка уведомлений
           container.title = "Уведомления";
           container.style.fontSize = isMobile() ? "24px" : "16px";
           L.DomEvent.disableClickPropagation(container);
-          container.onclick = function () {
+          container.onclick = function() {
             if (notifications.length > 0) {
               alert(notifications.join("\n\n"));
             } else {
@@ -324,57 +300,49 @@
       });
       map.addControl(new NotificationControl());
 
-      // 2. Контрол поиска (правый верхний угол)
+      // Контрол поиска (правый верхний угол)
       var SearchControl = L.Control.extend({
-        options: {
-          position: "topright"
-        },
-        onAdd: function (map) {
+        options: { position: "topright" },
+        onAdd: function(map) {
           var container = L.DomUtil.create("div", "custom-control");
-          container.innerHTML =
-            '<input id="searchBox" type="text" placeholder="Поиск остановки или ID" style="width:150px;">';
+          container.innerHTML = '<input id="searchBox" type="text" placeholder="Поиск остановки или ID" style="width:150px;">';
           L.DomEvent.disableClickPropagation(container);
           return container;
         }
       });
       map.addControl(new SearchControl());
 
-      document
-        .getElementById("searchBox")
-        .addEventListener("keyup", function (e) {
-          if (e.key === "Enter") {
-            var query = this.value.trim().toLowerCase();
-            if (!query) return;
-            var found = false;
-            markers.forEach(function (marker) {
-              var row = marker.rowData;
-              var stopName = row[1] || "";
-              var stopId = row[6] || "";
-              if (
-                normalize(stopName).indexOf(query) !== -1 ||
-                normalize(stopId).indexOf(query) !== -1
-              ) {
-                map.setView(marker.getLatLng(), 15);
-                marker.openPopup();
-                found = true;
-              }
-            });
-            if (!found) alert("Остановка не найдена");
-          }
-        });
+      document.getElementById("searchBox").addEventListener("keyup", function(e) {
+        if (e.key === "Enter") {
+          var query = normalize(this.value);
+          if (!query) return;
+          var found = false;
+          markers.forEach(function(marker) {
+            var row = marker.rowData;
+            // Поиск по названию (столбец C, index 2) или ID (столбец H, index 7)
+            var stopName = row[2] || "";
+            var stopId   = row[7] || "";
+            if (normalize(stopName).indexOf(query) !== -1 ||
+                normalize(stopId).indexOf(query) !== -1) {
+              map.setView(marker.getLatLng(), 15);
+              marker.openPopup();
+              found = true;
+            }
+          });
+          if (!found) alert("Остановка не найдена");
+        }
+      });
 
-      // 3. Контрол легенды (правый нижний угол)
+      // Контрол легенды (правый нижний угол)
       var LegendControl = L.Control.extend({
-        options: {
-          position: "bottomright"
-        },
-        onAdd: function (map) {
+        options: { position: "bottomright" },
+        onAdd: function(map) {
           var container = L.DomUtil.create("div", "custom-control");
           container.innerHTML = "&#9432;";
           container.title = "Легенда";
           container.style.fontSize = isMobile() ? "24px" : "16px";
           L.DomEvent.disableClickPropagation(container);
-          container.onclick = function () {
+          container.onclick = function() {
             var legendPanel = document.getElementById("legendPanel");
             if (legendPanel.style.display === "block") {
               legendPanel.style.display = "none";
@@ -398,7 +366,7 @@
       map.addControl(new LegendControl());
 
       // Закрываем панель легенды при клике по карте (опционально)
-      map.on("click", function () {
+      map.on("click", function() {
         var legendPanel = document.getElementById("legendPanel");
         if (legendPanel.style.display === "block") {
           legendPanel.style.display = "none";
