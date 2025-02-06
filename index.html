@@ -2,16 +2,12 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>Leaflet Map без уведомлений</title>
+    <title>Leaflet Map с данными из таблицы (A существует)</title>
     <!-- Подключаем Leaflet CSS -->
-    <link
-      rel="stylesheet"
-      href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
-    />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
     <style>
       /* Карта на весь экран */
-      html,
-      body {
+      html, body {
         margin: 0;
         padding: 0;
         height: 100%;
@@ -25,7 +21,7 @@
         background: white;
         padding: 5px;
         border-radius: 4px;
-        box-shadow: 0 0 5px rgba(0, 0, 0, 0.65);
+        box-shadow: 0 0 5px rgba(0,0,0,0.65);
         cursor: pointer;
       }
       /* Панель легенды (нижняя) */
@@ -65,33 +61,27 @@
     <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
     <script>
       /***************************************************************
-       * Схема индексов (при отсутствии первой колонки, соответствующей A):
+       * Схема индексов (A существует):
        *
-       * Для popup:
-       *   Улица           (B) → row[0]
-       *   Название        (C) → row[1]
-       *   Направление     (D) → row[2]
-       *   Район           (E) → row[3]
-       *   ID Остановки    (H) → row[6]
-       *   Статус          (Q) → row[15]
-       *   Реклама         (R) → row[16]
-       *
-       * Для маркера:
-       *   Форма           (M) → row[11]  
-       *       Если значение = "+" → круг,
-       *       Если значение = "медиаборд" → квадрат.
-       *   Статус          (Q) → row[15]  (определяет цвет заливки)
-       *       "снят табло" → серый,
-       *       "демонтирован" → чёрный,
-       *       "не работает" → красный,
-       *       "работает"   → ярко зелёный.
-       *   Реклама         (R) → row[16]  (определяет цвет и толщину обводки)
-       *       "LED" → красная (жирная),
-       *       "lightbox" → синяя (жирная),
-       *       "x" → зелёная (жирная).
-       *   Питание         (S) → row[17]
-       *       "питание есть" → значок молнии зелёного цвета,
-       *       "нет питания"  → значок молнии красного цвета.
+       * A: №                            → row[0]
+       * B: Наименование улицы           → row[1]
+       * C: Название остановок           → row[2]
+       * D: Направление                  → row[3]
+       * E: Район                        → row[4]
+       * F: Широта                       → row[5]
+       * G: Долгота                      → row[6]
+       * H: ID Табло                    → row[7]
+       * I: Тип павильона               → row[8]
+       * J: Принадлежность павильонов    → row[9]
+       * K: д.з 5.12                    → row[10]
+       * L: Обустройство                → row[11]
+       * M: Табло информирование        → row[12]
+       * N: Очередь ITS                 → row[13]
+       * O: План                        → row[14]
+       * P: Пассажирообразующие         → row[15]
+       * Q: Статус                      → row[16]
+       * R: Реклама                     → row[17]
+       * S: Питание                     → row[18]
        ***************************************************************/
 
       // Инициализация карты
@@ -100,7 +90,7 @@
         maxZoom: 19
       }).addTo(map);
 
-      // Массив для хранения маркеров (для поиска)
+      // Массив для хранения маркеров
       var markers = [];
 
       // Функция для определения мобильного устройства
@@ -108,12 +98,12 @@
         return window.innerWidth <= 768;
       }
 
-      // Функция нормализации строки (обрезка пробелов и перевод в нижний регистр)
+      // Функция нормализации строки: обрезает пробелы и переводит в нижний регистр
       function normalize(str) {
         return str ? str.toString().trim().toLowerCase() : "";
       }
 
-      // Функция для определения цвета заливки (из столбца Q → row[15])
+      // Функция для определения цвета заливки по столбцу Q (row[16])
       function getFillColor(status) {
         var st = normalize(status);
         if (st === "снят табло") return "gray";
@@ -123,7 +113,7 @@
         return "white";
       }
 
-      // Функция для определения цвета и толщины обводки (из столбца R → row[16])
+      // Функция для определения цвета и толщины обводки по столбцу R (row[17])
       function getBorderColor(reklama) {
         var rec = normalize(reklama);
         if (rec === "led") return "red";
@@ -137,15 +127,15 @@
         return 1;
       }
 
-      // Функция для определения формы маркера (из столбца M → row[11])
+      // Функция для определения формы маркера по столбцу M (row[12])
       function getShape(value) {
         var val = normalize(value);
         if (val === "медиаборд") return "square";
         if (val === "+") return "circle";
-        return "circle";
+        return "circle"; // если значение не распознано – по умолчанию круг
       }
 
-      // Функция для формирования значка молнии (из столбца S → row[17])
+      // Функция для формирования значка молнии по столбцу S (row[18])
       function getLightningHTML(power) {
         var p = normalize(power);
         if (p === "питание есть") {
@@ -160,32 +150,22 @@
         return "";
       }
 
-      // Функция для создания иконки маркера с учётом значений из строки row
+      // Функция для создания иконки маркера с учетом данных строки (row)
       function createMarkerIcon(row) {
-        // Увеличенный масштаб: для ПК – 32px, для мобильных – 64px
+        // Масштаб увеличен: для ПК – 32px, для мобильных – 64px
         var markerSize = isMobile() ? 64 : 32;
-        var shape = getShape(row[11]);           // Форма (M) → row[11]
-        var fillColor = getFillColor(row[15]);     // Цвет заливки по статусу (Q) → row[15]
-        var borderColor = getBorderColor(row[16]); // Цвет обводки по рекламе (R) → row[16]
-        var borderWidth = getBorderWidth(row[16]); // Толщина обводки (R) → row[16]
+        var shape = getShape(row[12]);           // Форма берется из столбца M (row[12])
+        var fillColor = getFillColor(row[16]);     // Цвет заливки берется из Статуса (row[16])
+        var borderColor = getBorderColor(row[17]); // Цвет обводки берется из Рекламы (row[17])
+        var borderWidth = getBorderWidth(row[17]); // Толщина обводки берется из Рекламы (row[17])
         var borderRadius = (shape === "circle") ? "50%" : "0%";
-        var lightningHTML = getLightningHTML(row[17]); // Значок молнии (S) → row[17]
+        var lightningHTML = getLightningHTML(row[18]); // Значок молнии берется из Питания (row[18])
 
         var html =
-          '<div class="custom-marker" style="position:relative; width:' +
-          markerSize +
-          'px; height:' +
-          markerSize +
-          'px;">' +
-            '<div style="width:100%; height:100%; background-color:' +
-            fillColor +
-            '; border:' +
-            borderWidth +
-            'px solid ' +
-            borderColor +
-            '; border-radius:' +
-            borderRadius +
-            ';"></div>' +
+          '<div class="custom-marker" style="position:relative; width:' + markerSize + 'px; height:' + markerSize + 'px;">' +
+            '<div style="width:100%; height:100%; background-color:' + fillColor +
+            '; border:' + borderWidth + 'px solid ' + borderColor +
+            '; border-radius:' + borderRadius + ';"></div>' +
             lightningHTML +
           '</div>';
 
@@ -197,9 +177,8 @@
         });
       }
 
-      // URL вашего Apps Script
-      var url =
-        "https://script.google.com/macros/s/AKfycbw02IfURjZsCIZsckiRYKt_kawJ4OlazkNILhw4cGwSj-9cdAXzbP6AtNWWr3zNFnky/exec";
+      // URL вашего Apps Script – убедитесь, что диапазон охватывает все столбцы (до S, т.е. до 19-го столбца)
+      var url = "https://script.google.com/macros/s/AKfycbw02IfURjZsCIZsckiRYKt_kawJ4OlazkNILhw4cGwSj-9cdAXzbP6AtNWWr3zNFnky/exec";
 
       // Загрузка данных из Apps Script
       fetch(url)
@@ -207,54 +186,54 @@
         .then(data => {
           console.log("Получены данные из Apps Script:", data);
           data.forEach(function(item, index) {
-            // Получаем строку данных (либо item.data, либо сам item)
+            // Предполагаем, что данные строки возвращаются как массив
             var row = item.data || item;
             if (!Array.isArray(row)) {
               row = Object.values(row);
             }
             console.log("Строка", index, ":", row);
-            // Если длина строки меньше 21, дополним отсутствующие ячейки пустыми строками
-            if (row.length < 21) {
-              for (var i = row.length; i < 21; i++) {
+            console.log("Статус (ожидается row[16]):", row[16], "| Реклама (ожидается row[17]):", row[17]);
+
+            // Если длина строки меньше 19 (то есть до столбца S), дополним отсутствующие ячейки пустыми строками
+            if (row.length < 19) {
+              for (var i = row.length; i < 19; i++) {
                 row[i] = "";
               }
               console.log("После дополнения:", row);
             }
 
-            // Определяем координаты:
-            // Если заданы свойства item.lat/item.lng, используем их,
-            // иначе предполагаем, что координаты находятся в row[0] и row[1]
-            var lat = (item.lat !== undefined)
-                        ? parseFloat(item.lat)
-                        : parseFloat(row[0]);
-            var lng = (item.lng !== undefined)
-                        ? parseFloat(item.lng)
-                        : parseFloat(row[1]);
+            // Определяем координаты: широта – F (row[5]), долгота – G (row[6])
+            var lat = parseFloat(row[5]);
+            var lng = parseFloat(row[6]);
             if (isNaN(lat) || isNaN(lng)) {
               console.warn("Неверные координаты для строки", index, row);
               return;
             }
 
-            // Для popup:
-            // Улица: row[0], Название: row[1], Направление: row[2], Район: row[3], ID: row[6],
-            // Статус: row[15], Реклама: row[16]
-            var street = row[0] || "";
-            var stopName = row[1] || "";
-            var direction = row[2] || "";
-            var region = row[3] || "";
-            var stopId = row[6] || "";
-            var status = row[15] || "";
-            var reklama = row[16] || "";
-
+            // Для popup (всплывающее окно) берем:
+            // Наименование улицы (B) → row[1]
+            // Название остановок (C) → row[2]
+            // Направление (D) → row[3]
+            // Район (E) → row[4]
+            // ID Табло (H) → row[7]
+            // Статус (Q) → row[16]
+            // Реклама (R) → row[17]
+            var street = row[1] || "";
+            var stopName = row[2] || "";
+            var direction = row[3] || "";
+            var region = row[4] || "";
+            var stopId = row[7] || "";
+            var status = row[16] || "";
+            var reklama = row[17] || "";
             var popupHtml =
-              "<b>Название остановки:</b> " + stopName + "<br>" +
-              "<b>Улица:</b> " + street + "<br>" +
+              "<b>Наименование улицы:</b> " + street + "<br>" +
+              "<b>Название остановок:</b> " + stopName + "<br>" +
               "<b>Направление:</b> " + direction + "<br>" +
               "<b>Район:</b> " + region + "<br>" +
-              "<b>ID Остановки:</b> " + stopId + "<br>" +
+              "<b>ID Табло:</b> " + stopId + "<br>" +
               "<b>Статус:</b> " + status + "<br>" +
               "<b>Реклама:</b> " + reklama;
-
+              
             var icon = createMarkerIcon(row);
             var marker = L.marker([lat, lng], { icon: icon }).addTo(map);
             marker.rowData = row;
@@ -271,8 +250,7 @@
         options: { position: "topright" },
         onAdd: function(map) {
           var container = L.DomUtil.create("div", "custom-control");
-          container.innerHTML =
-            '<input id="searchBox" type="text" placeholder="Поиск остановки или ID" style="width:150px;">';
+          container.innerHTML = '<input id="searchBox" type="text" placeholder="Поиск остановки или ID" style="width:150px;">';
           L.DomEvent.disableClickPropagation(container);
           return container;
         }
@@ -286,9 +264,9 @@
           var found = false;
           markers.forEach(function(marker) {
             var row = marker.rowData;
-            // Поиск по названию (row[1]) или ID (row[6])
-            var stopName = row[1] || "";
-            var stopId = row[6] || "";
+            // Поиск по Названию остановок (C) → row[2] или ID Табло (H) → row[7]
+            var stopName = row[2] || "";
+            var stopId = row[7] || "";
             if (normalize(stopName).indexOf(query) !== -1 ||
                 normalize(stopId).indexOf(query) !== -1) {
               map.setView(marker.getLatLng(), 15);
@@ -323,8 +301,8 @@
                 "<span style='color:black;'>■</span> Демонтирован (черный)<br>" +
                 "<span style='color:red;'>&#9889;</span> Нет питания (красная молния)<br>" +
                 "<span style='color:green;'>&#9889;</span> Питание есть (зеленая молния)<br>" +
-                "■ – Квадратик (медиаборд)<br>" +
-                "● – Круг (табло старое)";
+                "■ – Квадратик (если в столбце M указано 'медиаборд')<br>" +
+                "● – Круг (если в столбце M указан '+')";
             }
           };
           return container;
