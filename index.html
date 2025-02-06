@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>Leaflet Map с данными из таблицы (A существует)</title>
+    <title>Leaflet Map – Данные из таблицы</title>
     <!-- Подключаем Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
     <style>
@@ -61,7 +61,7 @@
     <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
     <script>
       /***************************************************************
-       * Схема индексов (A существует):
+       * Схема индексов (A существует, нумерация с 0):
        *
        * A: №                            → row[0]
        * B: Наименование улицы           → row[1]
@@ -70,40 +70,38 @@
        * E: Район                        → row[4]
        * F: Широта                       → row[5]
        * G: Долгота                      → row[6]
-       * H: ID Табло                    → row[7]
-       * I: Тип павильона               → row[8]
-       * J: Принадлежность павильонов    → row[9]
-       * K: д.з 5.12                    → row[10]
-       * L: Обустройство                → row[11]
-       * M: Табло информирование        → row[12]
-       * N: Очередь ITS                 → row[13]
-       * O: План                        → row[14]
-       * P: Пассажирообразующие         → row[15]
-       * Q: Статус                      → row[16]
-       * R: Реклама                     → row[17]
-       * S: Питание                     → row[18]
+       * H: ID Табло                     → row[7]
+       * I: Тип павильона                → row[8]
+       * J: Принадлежность павильонов     → row[9]
+       * K: д.з 5.12                     → row[10]
+       * L: Обустройство                 → row[11]
+       * M: Табло информирование         → row[12]   ← Форма маркера: "+" → круг, "медиаборд" → квадрат
+       * N: Очередь ITS                  → row[13]
+       * O: План                         → row[14]
+       * P: Пассажирообразующие          → row[15]
+       * Q: Статус                       → row[16]   ← Цвет заливки
+       * R: Реклама                      → row[17]   ← Обводка (цвет и толщина)
+       * S: Питание                      → row[18]   ← Значок молнии
        ***************************************************************/
 
       // Инициализация карты
       var map = L.map("map").setView([51.09, 71.45], 11);
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 19
-      }).addTo(map);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(map);
 
-      // Массив для хранения маркеров
+      // Массив для хранения маркеров (для поиска)
       var markers = [];
 
-      // Функция для определения мобильного устройства
+      // Функция для определения, мобильное ли устройство
       function isMobile() {
         return window.innerWidth <= 768;
       }
 
-      // Функция нормализации строки: обрезает пробелы и переводит в нижний регистр
+      // Функция нормализации строки (обрезка пробелов и перевод в нижний регистр)
       function normalize(str) {
         return str ? str.toString().trim().toLowerCase() : "";
       }
 
-      // Функция для определения цвета заливки по столбцу Q (row[16])
+      // Функция для определения цвета заливки (из столбца Q, row[16])
       function getFillColor(status) {
         var st = normalize(status);
         if (st === "снят табло") return "gray";
@@ -113,7 +111,7 @@
         return "white";
       }
 
-      // Функция для определения цвета и толщины обводки по столбцу R (row[17])
+      // Функция для определения цвета и толщины обводки (из столбца R, row[17])
       function getBorderColor(reklama) {
         var rec = normalize(reklama);
         if (rec === "led") return "red";
@@ -127,15 +125,15 @@
         return 1;
       }
 
-      // Функция для определения формы маркера по столбцу M (row[12])
+      // Функция для определения формы маркера (из столбца M, row[12])
       function getShape(value) {
         var val = normalize(value);
         if (val === "медиаборд") return "square";
         if (val === "+") return "circle";
-        return "circle"; // если значение не распознано – по умолчанию круг
+        return "circle"; // по умолчанию круг
       }
 
-      // Функция для формирования значка молнии по столбцу S (row[18])
+      // Функция для формирования значка молнии (из столбца S, row[18])
       function getLightningHTML(power) {
         var p = normalize(power);
         if (p === "питание есть") {
@@ -150,16 +148,16 @@
         return "";
       }
 
-      // Функция для создания иконки маркера с учетом данных строки (row)
+      // Функция для создания иконки маркера с учётом данных строки (row)
       function createMarkerIcon(row) {
         // Масштаб увеличен: для ПК – 32px, для мобильных – 64px
         var markerSize = isMobile() ? 64 : 32;
-        var shape = getShape(row[12]);           // Форма берется из столбца M (row[12])
-        var fillColor = getFillColor(row[16]);     // Цвет заливки берется из Статуса (row[16])
-        var borderColor = getBorderColor(row[17]); // Цвет обводки берется из Рекламы (row[17])
-        var borderWidth = getBorderWidth(row[17]); // Толщина обводки берется из Рекламы (row[17])
+        var shape = getShape(row[12]);           // Значение из столбца M (row[12])
+        var fillColor = getFillColor(row[16]);     // Статус из столбца Q (row[16])
+        var borderColor = getBorderColor(row[17]); // Реклама из столбца R (row[17])
+        var borderWidth = getBorderWidth(row[17]); // Толщина обводки
         var borderRadius = (shape === "circle") ? "50%" : "0%";
-        var lightningHTML = getLightningHTML(row[18]); // Значок молнии берется из Питания (row[18])
+        var lightningHTML = getLightningHTML(row[18]); // Значение из столбца S (row[18])
 
         var html =
           '<div class="custom-marker" style="position:relative; width:' + markerSize + 'px; height:' + markerSize + 'px;">' +
@@ -177,7 +175,7 @@
         });
       }
 
-      // URL вашего Apps Script – убедитесь, что диапазон охватывает все столбцы (до S, т.е. до 19-го столбца)
+      // URL вашего Apps Script – убедитесь, что диапазон охватывает столбцы A:S (то есть 19 столбцов)
       var url = "https://script.google.com/macros/s/AKfycbw02IfURjZsCIZsckiRYKt_kawJ4OlazkNILhw4cGwSj-9cdAXzbP6AtNWWr3zNFnky/exec";
 
       // Загрузка данных из Apps Script
@@ -186,31 +184,25 @@
         .then(data => {
           console.log("Получены данные из Apps Script:", data);
           data.forEach(function(item, index) {
-            // Предполагаем, что данные строки возвращаются как массив
+            // Предполагаем, что данные строки возвращаются как массив (либо в item.data, либо как сам item)
             var row = item.data || item;
-            if (!Array.isArray(row)) {
-              row = Object.values(row);
-            }
+            if (!Array.isArray(row)) { row = Object.values(row); }
             console.log("Строка", index, ":", row);
-            console.log("Статус (ожидается row[16]):", row[16], "| Реклама (ожидается row[17]):", row[17]);
-
-            // Если длина строки меньше 19 (то есть до столбца S), дополним отсутствующие ячейки пустыми строками
+            // Если длина строки меньше 19, дополним отсутствующие ячейки пустыми строками
             if (row.length < 19) {
               for (var i = row.length; i < 19; i++) {
                 row[i] = "";
               }
               console.log("После дополнения:", row);
             }
-
-            // Определяем координаты: широта – F (row[5]), долгота – G (row[6])
+            // Определяем координаты: широта (F) → row[5], долгота (G) → row[6]
             var lat = parseFloat(row[5]);
             var lng = parseFloat(row[6]);
             if (isNaN(lat) || isNaN(lng)) {
               console.warn("Неверные координаты для строки", index, row);
               return;
             }
-
-            // Для popup (всплывающее окно) берем:
+            // Для popup: используем данные:
             // Наименование улицы (B) → row[1]
             // Название остановок (C) → row[2]
             // Направление (D) → row[3]
@@ -264,7 +256,7 @@
           var found = false;
           markers.forEach(function(marker) {
             var row = marker.rowData;
-            // Поиск по Названию остановок (C) → row[2] или ID Табло (H) → row[7]
+            // Поиск по Названию остановок (C, row[2]) или ID Табло (H, row[7])
             var stopName = row[2] || "";
             var stopId = row[7] || "";
             if (normalize(stopName).indexOf(query) !== -1 ||
