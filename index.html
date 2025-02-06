@@ -2,12 +2,16 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>Leaflet Map – данные берутся из таблицы</title>
+    <title>Leaflet Map без уведомлений</title>
     <!-- Подключаем Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
+    />
     <style>
       /* Карта на весь экран */
-      html, body {
+      html,
+      body {
         margin: 0;
         padding: 0;
         height: 100%;
@@ -21,7 +25,7 @@
         background: white;
         padding: 5px;
         border-radius: 4px;
-        box-shadow: 0 0 5px rgba(0,0,0,0.65);
+        box-shadow: 0 0 5px rgba(0, 0, 0, 0.65);
         cursor: pointer;
       }
       /* Панель легенды (нижняя) */
@@ -61,7 +65,7 @@
     <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
     <script>
       /***************************************************************
-       * Используемая схема индексов (данные сдвинуты – первая колонка отсутствует):
+       * Схема индексов (при отсутствии первой колонки, соответствующей A):
        *
        * Для popup:
        *   Улица           (B) → row[0]
@@ -86,11 +90,8 @@
        *       "lightbox" → синяя (жирная),
        *       "x" → зелёная (жирная).
        *   Питание         (S) → row[17]
-       *       "питание есть" → добавляется значок молнии зелёного цвета,
+       *       "питание есть" → значок молнии зелёного цвета,
        *       "нет питания"  → значок молнии красного цвета.
-       *
-       * Для уведомления:
-       *   Email           (U) → row[19]
        ***************************************************************/
 
       // Инициализация карты
@@ -99,9 +100,8 @@
         maxZoom: 19
       }).addTo(map);
 
-      // Массивы для маркеров и уведомлений
+      // Массив для хранения маркеров (для поиска)
       var markers = [];
-      var notifications = [];
 
       // Функция для определения мобильного устройства
       function isMobile() {
@@ -113,17 +113,17 @@
         return str ? str.toString().trim().toLowerCase() : "";
       }
 
-      // Функция для определения цвета заливки по значению из столбца Q (row[15])
+      // Функция для определения цвета заливки (из столбца Q → row[15])
       function getFillColor(status) {
         var st = normalize(status);
         if (st === "снят табло") return "gray";
         if (st === "демонтирован") return "black";
         if (st === "не работает") return "#ff0000";  // красный
         if (st === "работает") return "#00ff00";      // ярко зеленый
-        return "white"; // если значение не распознано
+        return "white";
       }
 
-      // Функция для определения цвета и толщины обводки по значению из столбца R (row[16])
+      // Функция для определения цвета и толщины обводки (из столбца R → row[16])
       function getBorderColor(reklama) {
         var rec = normalize(reklama);
         if (rec === "led") return "red";
@@ -137,16 +137,15 @@
         return 1;
       }
 
-      // Функция для определения формы маркера по значению из столбца M (row[11])
+      // Функция для определения формы маркера (из столбца M → row[11])
       function getShape(value) {
         var val = normalize(value);
-        // Если значение точно равно "медиаборд" – квадрат; если равно "+" – круг
         if (val === "медиаборд") return "square";
         if (val === "+") return "circle";
-        return "circle"; // если ячейка пуста или иное значение – оставляем круг
+        return "circle";
       }
 
-      // Функция для формирования значка молнии по значению из столбца S (row[17])
+      // Функция для формирования значка молнии (из столбца S → row[17])
       function getLightningHTML(power) {
         var p = normalize(power);
         if (p === "питание есть") {
@@ -161,22 +160,32 @@
         return "";
       }
 
-      // Функция для создания иконки маркера с учетом значений из строки row
+      // Функция для создания иконки маркера с учётом значений из строки row
       function createMarkerIcon(row) {
         // Увеличенный масштаб: для ПК – 32px, для мобильных – 64px
         var markerSize = isMobile() ? 64 : 32;
-        var shape = getShape(row[11]);           // Форма из столбца M (row[11])
-        var fillColor = getFillColor(row[15]);     // Цвет заливки по статусу из столбца Q (row[15])
-        var borderColor = getBorderColor(row[16]); // Цвет обводки по рекламе из столбца R (row[16])
-        var borderWidth = getBorderWidth(row[16]); // Толщина обводки по рекламе из столбца R (row[16])
+        var shape = getShape(row[11]);           // Форма (M) → row[11]
+        var fillColor = getFillColor(row[15]);     // Цвет заливки по статусу (Q) → row[15]
+        var borderColor = getBorderColor(row[16]); // Цвет обводки по рекламе (R) → row[16]
+        var borderWidth = getBorderWidth(row[16]); // Толщина обводки (R) → row[16]
         var borderRadius = (shape === "circle") ? "50%" : "0%";
-        var lightningHTML = getLightningHTML(row[17]); // Значок молнии из столбца S (row[17])
+        var lightningHTML = getLightningHTML(row[17]); // Значок молнии (S) → row[17]
 
         var html =
-          '<div class="custom-marker" style="position:relative; width:' + markerSize + 'px; height:' + markerSize + 'px;">' +
-            '<div style="width:100%; height:100%; background-color:' + fillColor +
-            '; border:' + borderWidth + 'px solid ' + borderColor +
-            '; border-radius:' + borderRadius + ';"></div>' +
+          '<div class="custom-marker" style="position:relative; width:' +
+          markerSize +
+          'px; height:' +
+          markerSize +
+          'px;">' +
+            '<div style="width:100%; height:100%; background-color:' +
+            fillColor +
+            '; border:' +
+            borderWidth +
+            'px solid ' +
+            borderColor +
+            '; border-radius:' +
+            borderRadius +
+            ';"></div>' +
             lightningHTML +
           '</div>';
 
@@ -189,7 +198,8 @@
       }
 
       // URL вашего Apps Script
-      var url = "https://script.google.com/macros/s/AKfycbw02IfURjZsCIZsckiRYKt_kawJ4OlazkNILhw4cGwSj-9cdAXzbP6AtNWWr3zNFnky/exec";
+      var url =
+        "https://script.google.com/macros/s/AKfycbw02IfURjZsCIZsckiRYKt_kawJ4OlazkNILhw4cGwSj-9cdAXzbP6AtNWWr3zNFnky/exec";
 
       // Загрузка данных из Apps Script
       fetch(url)
@@ -197,15 +207,12 @@
         .then(data => {
           console.log("Получены данные из Apps Script:", data);
           data.forEach(function(item, index) {
-            // Если данные строки находятся в item.data, используем их, иначе item сам по себе
+            // Получаем строку данных (либо item.data, либо сам item)
             var row = item.data || item;
             if (!Array.isArray(row)) {
               row = Object.values(row);
             }
-            // Для удобства выводим в консоль данные строки и конкретные значения для Q и R
-            console.log("Строка " + index + " (длина " + row.length + "):", row);
-            console.log("Статус (row[15]):", row[15], " | Реклама (row[16]):", row[16]);
-
+            console.log("Строка", index, ":", row);
             // Если длина строки меньше 21, дополним отсутствующие ячейки пустыми строками
             if (row.length < 21) {
               for (var i = row.length; i < 21; i++) {
@@ -214,7 +221,9 @@
               console.log("После дополнения:", row);
             }
 
-            // Определяем координаты. Если item.lat/item.lng не заданы, считаем, что координаты в row[0] и row[1]
+            // Определяем координаты:
+            // Если заданы свойства item.lat/item.lng, используем их,
+            // иначе предполагаем, что координаты находятся в row[0] и row[1]
             var lat = (item.lat !== undefined)
                         ? parseFloat(item.lat)
                         : parseFloat(row[0]);
@@ -226,16 +235,16 @@
               return;
             }
 
-            // Для popup используем:
+            // Для popup:
             // Улица: row[0], Название: row[1], Направление: row[2], Район: row[3], ID: row[6],
             // Статус: row[15], Реклама: row[16]
-            var street    = row[0]  || "";
-            var stopName  = row[1]  || "";
-            var direction = row[2]  || "";
-            var region    = row[3]  || "";
-            var stopId    = row[6]  || "";
-            var status    = row[15] || "";
-            var reklama   = row[16] || "";
+            var street = row[0] || "";
+            var stopName = row[1] || "";
+            var direction = row[2] || "";
+            var region = row[3] || "";
+            var stopId = row[6] || "";
+            var status = row[15] || "";
+            var reklama = row[16] || "";
 
             var popupHtml =
               "<b>Название остановки:</b> " + stopName + "<br>" +
@@ -245,63 +254,25 @@
               "<b>ID Остановки:</b> " + stopId + "<br>" +
               "<b>Статус:</b> " + status + "<br>" +
               "<b>Реклама:</b> " + reklama;
-              
+
             var icon = createMarkerIcon(row);
             var marker = L.marker([lat, lng], { icon: icon }).addTo(map);
             marker.rowData = row;
             markers.push(marker);
-
             marker.bindPopup(popupHtml);
-
-            // Если требуется уведомление – например, если Email (row[19]) равен "gsharipbayev@innoforce.kz"
-            // и статус (row[15]) равен "работает", добавляем уведомление.
-            var userEmail = row[19] || "";
-            if (normalize(status) === "работает" &&
-                normalize(userEmail) === "gsharipbayev@innoforce.kz") {
-              var notificationMsg =
-                "Пользователь " + userEmail +
-                " сделал изменение. Остановка номер ID: " + stopId +
-                ", наименование: " + stopName +
-                " изменен статус (Столбец Q): " + status;
-              notifications.push(notificationMsg);
-            }
           });
         })
         .catch(err => {
           console.error("Ошибка при загрузке JSON:", err);
         });
 
-      /*********************
-       * Пользовательские контролы
-       *********************/
-
-      // Контрол уведомлений (левый верхний угол)
-      var NotificationControl = L.Control.extend({
-        options: { position: "topleft" },
-        onAdd: function(map) {
-          var container = L.DomUtil.create("div", "custom-control");
-          container.innerHTML = "&#128276;"; // иконка уведомлений
-          container.title = "Уведомления";
-          container.style.fontSize = isMobile() ? "24px" : "16px";
-          L.DomEvent.disableClickPropagation(container);
-          container.onclick = function() {
-            if (notifications.length > 0) {
-              alert(notifications.join("\n\n"));
-            } else {
-              alert("Нет уведомлений.");
-            }
-          };
-          return container;
-        }
-      });
-      map.addControl(new NotificationControl());
-
       // Контрол поиска (правый верхний угол)
       var SearchControl = L.Control.extend({
         options: { position: "topright" },
         onAdd: function(map) {
           var container = L.DomUtil.create("div", "custom-control");
-          container.innerHTML = '<input id="searchBox" type="text" placeholder="Поиск остановки или ID" style="width:150px;">';
+          container.innerHTML =
+            '<input id="searchBox" type="text" placeholder="Поиск остановки или ID" style="width:150px;">';
           L.DomEvent.disableClickPropagation(container);
           return container;
         }
@@ -317,7 +288,7 @@
             var row = marker.rowData;
             // Поиск по названию (row[1]) или ID (row[6])
             var stopName = row[1] || "";
-            var stopId   = row[6] || "";
+            var stopId = row[6] || "";
             if (normalize(stopName).indexOf(query) !== -1 ||
                 normalize(stopId).indexOf(query) !== -1) {
               map.setView(marker.getLatLng(), 15);
