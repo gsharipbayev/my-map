@@ -2,16 +2,12 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>Leaflet Map с увеличенным масштабом и значениями по умолчанию</title>
+    <title>Leaflet Map – данные берутся из таблицы</title>
     <!-- Подключаем Leaflet CSS -->
-    <link
-      rel="stylesheet"
-      href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
-    />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
     <style>
       /* Карта на весь экран */
-      html,
-      body {
+      html, body {
         margin: 0;
         padding: 0;
         height: 100%;
@@ -25,7 +21,7 @@
         background: white;
         padding: 5px;
         border-radius: 4px;
-        box-shadow: 0 0 5px rgba(0, 0, 0, 0.65);
+        box-shadow: 0 0 5px rgba(0,0,0,0.65);
         cursor: pointer;
       }
       /* Панель легенды (нижняя) */
@@ -65,8 +61,7 @@
     <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
     <script>
       /***************************************************************
-       * Новая схема индексов (при условии, что данные сдвинуты и
-       * отсутствует первая колонка, соответствующая A):
+       * Используемая схема индексов (данные сдвинуты – первая колонка отсутствует):
        *
        * Для popup:
        *   Улица           (B) → row[0]
@@ -78,19 +73,21 @@
        *   Реклама         (R) → row[16]
        *
        * Для маркера:
-       *   Форма           (M) → row[11]  ("+" → круг, "медиаборд" → квадрат)
-       *   Статус          (Q) → row[15]  (цвет заливки)
-       *      "снят табло" → серый,
-       *      "демонтирован" → чёрный,
-       *      "не работает" → красный,
-       *      "работает"   → ярко зелёный.
-       *   Реклама         (R) → row[16]  (цвет и толщина обводки)
-       *      "LED" → жирная красная,
-       *      "lightbox" → жирная синяя,
-       *      "x" → жирная зелёная.
+       *   Форма           (M) → row[11]  
+       *       Если значение = "+" → круг,
+       *       Если значение = "медиаборд" → квадрат.
+       *   Статус          (Q) → row[15]  (определяет цвет заливки)
+       *       "снят табло" → серый,
+       *       "демонтирован" → чёрный,
+       *       "не работает" → красный,
+       *       "работает"   → ярко зелёный.
+       *   Реклама         (R) → row[16]  (определяет цвет и толщину обводки)
+       *       "LED" → красная (жирная),
+       *       "lightbox" → синяя (жирная),
+       *       "x" → зелёная (жирная).
        *   Питание         (S) → row[17]
-       *      "питание есть" → значок молнии зелёного цвета,
-       *      "нет питания"  → значок молнии красного цвета.
+       *       "питание есть" → добавляется значок молнии зелёного цвета,
+       *       "нет питания"  → значок молнии красного цвета.
        *
        * Для уведомления:
        *   Email           (U) → row[19]
@@ -102,12 +99,11 @@
         maxZoom: 19
       }).addTo(map);
 
-      // Массив для хранения маркеров (для поиска)
+      // Массивы для маркеров и уведомлений
       var markers = [];
-      // Массив для накопления уведомлений
       var notifications = [];
 
-      // Определяем, мобильное ли устройство
+      // Функция для определения мобильного устройства
       function isMobile() {
         return window.innerWidth <= 768;
       }
@@ -117,17 +113,17 @@
         return str ? str.toString().trim().toLowerCase() : "";
       }
 
-      // Функция для определения цвета заливки (по столбцу Q → row[15])
+      // Функция для определения цвета заливки по значению из столбца Q (row[15])
       function getFillColor(status) {
         var st = normalize(status);
         if (st === "снят табло") return "gray";
         if (st === "демонтирован") return "black";
-        if (st === "не работает") return "#FF0000";  // красный
-        if (st === "работает") return "#00FF00";      // ярко зеленый
-        return "white";
+        if (st === "не работает") return "#ff0000";  // красный
+        if (st === "работает") return "#00ff00";      // ярко зеленый
+        return "white"; // если значение не распознано
       }
 
-      // Функция для определения цвета и толщины обводки (по столбцу R → row[16])
+      // Функция для определения цвета и толщины обводки по значению из столбца R (row[16])
       function getBorderColor(reklama) {
         var rec = normalize(reklama);
         if (rec === "led") return "red";
@@ -141,15 +137,16 @@
         return 1;
       }
 
-      // Функция для определения формы маркера (по столбцу M → row[11])
+      // Функция для определения формы маркера по значению из столбца M (row[11])
       function getShape(value) {
         var val = normalize(value);
+        // Если значение точно равно "медиаборд" – квадрат; если равно "+" – круг
         if (val === "медиаборд") return "square";
         if (val === "+") return "circle";
-        return "circle";
+        return "circle"; // если ячейка пуста или иное значение – оставляем круг
       }
 
-      // Функция для формирования значка молнии (по столбцу S → row[17])
+      // Функция для формирования значка молнии по значению из столбца S (row[17])
       function getLightningHTML(power) {
         var p = normalize(power);
         if (p === "питание есть") {
@@ -164,16 +161,16 @@
         return "";
       }
 
-      // Функция для создания иконки маркера (используя данные строки row)
+      // Функция для создания иконки маркера с учетом значений из строки row
       function createMarkerIcon(row) {
-        // Увеличиваем масштаб в 2 раза: для мобильных устройств — 64, для ПК — 32
+        // Увеличенный масштаб: для ПК – 32px, для мобильных – 64px
         var markerSize = isMobile() ? 64 : 32;
-        var shape = getShape(row[11]);           // Форма (M) → row[11]
-        var fillColor = getFillColor(row[15]);     // Статус (Q) → row[15]
-        var borderColor = getBorderColor(row[16]); // Реклама (R) → row[16]
-        var borderWidth = getBorderWidth(row[16]); // Реклама (R) → row[16]
+        var shape = getShape(row[11]);           // Форма из столбца M (row[11])
+        var fillColor = getFillColor(row[15]);     // Цвет заливки по статусу из столбца Q (row[15])
+        var borderColor = getBorderColor(row[16]); // Цвет обводки по рекламе из столбца R (row[16])
+        var borderWidth = getBorderWidth(row[16]); // Толщина обводки по рекламе из столбца R (row[16])
         var borderRadius = (shape === "circle") ? "50%" : "0%";
-        var lightningHTML = getLightningHTML(row[17]); // Питание (S) → row[17]
+        var lightningHTML = getLightningHTML(row[17]); // Значок молнии из столбца S (row[17])
 
         var html =
           '<div class="custom-marker" style="position:relative; width:' + markerSize + 'px; height:' + markerSize + 'px;">' +
@@ -191,7 +188,7 @@
         });
       }
 
-      // URL к вашему Apps Script (замените при необходимости)
+      // URL вашего Apps Script
       var url = "https://script.google.com/macros/s/AKfycbw02IfURjZsCIZsckiRYKt_kawJ4OlazkNILhw4cGwSj-9cdAXzbP6AtNWWr3zNFnky/exec";
 
       // Загрузка данных из Apps Script
@@ -200,33 +197,24 @@
         .then(data => {
           console.log("Получены данные из Apps Script:", data);
           data.forEach(function(item, index) {
-            console.log("Элемент", index, ":", item);
-            // Получаем строку данных (либо item.data, либо item)
+            // Если данные строки находятся в item.data, используем их, иначе item сам по себе
             var row = item.data || item;
             if (!Array.isArray(row)) {
               row = Object.values(row);
             }
-            console.log("Обработка строки, длина =", row.length, "данные:", row);
+            // Для удобства выводим в консоль данные строки и конкретные значения для Q и R
+            console.log("Строка " + index + " (длина " + row.length + "):", row);
+            console.log("Статус (row[15]):", row[15], " | Реклама (row[16]):", row[16]);
 
-            // Если длина строки меньше 21, дополним отсутствующие столбцы пустыми строками
+            // Если длина строки меньше 21, дополним отсутствующие ячейки пустыми строками
             if (row.length < 21) {
               for (var i = row.length; i < 21; i++) {
                 row[i] = "";
               }
-              console.log("После дополнения длина строки =", row.length, row);
+              console.log("После дополнения:", row);
             }
 
-            // Если столбцы Статус (row[15]) и Реклама (row[16]) пустые, задаём значения по умолчанию
-            if (!row[15] || normalize(row[15]) === "") {
-              row[15] = "работает";
-            }
-            if (!row[16] || normalize(row[16]) === "") {
-              row[16] = "led";
-            }
-
-            // Определяем координаты:
-            // Если заданы свойства lat/lng, используем их,
-            // иначе предполагаем, что они находятся в row[0] и row[1]
+            // Определяем координаты. Если item.lat/item.lng не заданы, считаем, что координаты в row[0] и row[1]
             var lat = (item.lat !== undefined)
                         ? parseFloat(item.lat)
                         : parseFloat(row[0]);
@@ -238,14 +226,9 @@
               return;
             }
 
-            // Для popup:
-            // Улица: (B) → row[0]
-            // Название: (C) → row[1]
-            // Направление: (D) → row[2]
-            // Район: (E) → row[3]
-            // ID Остановки: (H) → row[6]
-            // Статус: (Q) → row[15]
-            // Реклама: (R) → row[16]
+            // Для popup используем:
+            // Улица: row[0], Название: row[1], Направление: row[2], Район: row[3], ID: row[6],
+            // Статус: row[15], Реклама: row[16]
             var street    = row[0]  || "";
             var stopName  = row[1]  || "";
             var direction = row[2]  || "";
@@ -254,13 +237,6 @@
             var status    = row[15] || "";
             var reklama   = row[16] || "";
 
-            // Создаём маркер с иконкой
-            var icon = createMarkerIcon(row);
-            var marker = L.marker([lat, lng], { icon: icon }).addTo(map);
-            marker.rowData = row;
-            markers.push(marker);
-
-            // Формируем содержимое popup
             var popupHtml =
               "<b>Название остановки:</b> " + stopName + "<br>" +
               "<b>Улица:</b> " + street + "<br>" +
@@ -269,10 +245,16 @@
               "<b>ID Остановки:</b> " + stopId + "<br>" +
               "<b>Статус:</b> " + status + "<br>" +
               "<b>Реклама:</b> " + reklama;
+              
+            var icon = createMarkerIcon(row);
+            var marker = L.marker([lat, lng], { icon: icon }).addTo(map);
+            marker.rowData = row;
+            markers.push(marker);
+
             marker.bindPopup(popupHtml);
 
-            // Если статус (row[15]) равен "работает" и email (row[19])
-            // равен "gsharipbayev@innoforce.kz", добавляем уведомление.
+            // Если требуется уведомление – например, если Email (row[19]) равен "gsharipbayev@innoforce.kz"
+            // и статус (row[15]) равен "работает", добавляем уведомление.
             var userEmail = row[19] || "";
             if (normalize(status) === "работает" &&
                 normalize(userEmail) === "gsharipbayev@innoforce.kz") {
@@ -319,8 +301,7 @@
         options: { position: "topright" },
         onAdd: function(map) {
           var container = L.DomUtil.create("div", "custom-control");
-          container.innerHTML =
-            '<input id="searchBox" type="text" placeholder="Поиск остановки или ID" style="width:150px;">';
+          container.innerHTML = '<input id="searchBox" type="text" placeholder="Поиск остановки или ID" style="width:150px;">';
           L.DomEvent.disableClickPropagation(container);
           return container;
         }
@@ -365,8 +346,8 @@
               legendPanel.style.display = "block";
               legendPanel.innerHTML =
                 "<b>Легенда:</b><br>" +
-                "<span style='color:#00FF00;'>■</span> Работает (ярко зеленый)<br>" +
-                "<span style='color:#FF0000;'>■</span> Не работает (красный)<br>" +
+                "<span style='color:#00ff00;'>■</span> Работает (ярко зеленый)<br>" +
+                "<span style='color:#ff0000;'>■</span> Не работает (красный)<br>" +
                 "<span style='color:gray;'>■</span> Снят табло (серый)<br>" +
                 "<span style='color:black;'>■</span> Демонтирован (черный)<br>" +
                 "<span style='color:red;'>&#9889;</span> Нет питания (красная молния)<br>" +
