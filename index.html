@@ -1,155 +1,335 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <meta charset="utf-8"/>
-  <title>Leaflet Map (Sheets + Apps Script)</title>
-  
-  <!-- Подключаем Leaflet CSS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"/>
-  
-  <style>
-    /* Карта на весь экран */
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-    }
-    #map {
-      width: 100%;
-      height: 100%;
-    }
-  </style>
-</head>
-<body>
-  <div id="map"></div>
-  
-  <!-- Подключаем Leaflet JS -->
-  <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
-  
-  <script>
-    // 1) Инициализируем карту Leaflet
-    var map = L.map('map').setView([51.09, 71.45], 11); // При желании поменяйте координаты/зум
-    
-    // 2) Подключаем тайлы (OpenStreetMap)
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19
-    }).addTo(map);
+  <head>
+    <meta charset="utf-8" />
+    <title>Leaflet Map (Sheets + Apps Script)</title>
+    <!-- Подключаем Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
 
-    // 3) Укажите ВАШУ ссылку на задеплоенный скрипт
-    var url = "https://script.google.com/macros/s/AKfycbw02IfURjZsCIZsckiRYKt_kawJ4OlazkNILhw4cGwSj-9cdAXzbP6AtNWWr3zNFnky/exec";
-
-    // --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
-
-    // a) Определяем цвет обводки
-    function getBorderColor(item) {
-      // Если "Пассажирообразующий" (P) = "+"
-      if (item.passenger === "+") {
-        return "black";
+    <style>
+      /* Карта на весь экран */
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
       }
-      // Иначе по рекламе (R)
-      switch (item.reklama) {
-        case "LED":
-          return "green";
-        case "Lightbox":
-          return "blue";
-        case "X":
-          return "red";
-        default:
-          return "black"; // по умолчанию
+      #map {
+        width: 100%;
+        height: 100%;
       }
-    }
-
-    // b) Определяем цвет заливки (только для остановок с табло)
-    function getFillColorByStatus(status) {
-      // статус (Q)
-      switch (status) {
-        case "работает":
-          return "#00FF00"; // ярко-зелёный
-        case "не работает":
-          return "#FF0000"; // ярко-красный
-        case "демонтирован":
-          return "gray";    // серый
-        default:
-          return "white";   // если статус незнакомый, делаем белый
+      /* Общий стиль для пользовательских контролов */
+      .custom-control {
+        background: white;
+        padding: 5px;
+        border-radius: 4px;
+        box-shadow: 0 0 5px rgba(0, 0, 0, 0.65);
+        cursor: pointer;
       }
-    }
+      /* Панель легенды – изначально скрыта */
+      .legend-panel {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: white;
+        border-top: 2px solid #ccc;
+        padding: 10px;
+        display: none;
+        height: 15vh;
+        overflow: auto;
+        z-index: 1000;
+      }
+      /* Если заходим с телефона – увеличиваем значки */
+      @media (max-width: 768px) {
+        .custom-marker {
+          width: 32px !important;
+          height: 32px !important;
+        }
+        .custom-marker .lightning {
+          font-size: 16px !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+    <!-- Панель легенды (будет открываться при нажатии на иконку) -->
+    <div id="legendPanel" class="legend-panel"></div>
 
-    // 4) Загружаем JSON
-    fetch(url)
-      .then(response => response.json())
-      .then(data => {
-        console.log("Данные из Apps Script:", data); // Посмотрите в консоли, что реально приходит
+    <!-- Подключаем Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script>
+      // Инициализируем карту Leaflet
+      var map = L.map("map").setView([51.09, 71.45], 11);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19
+      }).addTo(map);
 
-        data.forEach(function(item) {
-          // Преобразуем широту/долготу в числа
-          var lat = parseFloat(item.lat);
-          var lng = parseFloat(item.lng);
-          if (isNaN(lat) || isNaN(lng)) {
-            // Если координаты некорректны, пропускаем
-            return;
+      // Массив для хранения маркеров (для поиска)
+      var markers = [];
+
+      // Функция для определения, мобильное ли устройство
+      function isMobile() {
+        return window.innerWidth <= 768;
+      }
+
+      // Функция для определения цвета заливки в зависимости от статуса (столбец Q)
+      function getFillColor(status) {
+        switch (status) {
+          case "снят табло":
+            return "gray";
+          case "демонтирован":
+            return "black";
+          case "не работает":
+            return "#FF0000";
+          case "работает":
+            return "#00FF00";
+          default:
+            return "white";
+        }
+      }
+
+      // Функция для определения цвета обводки по рекламе (столбец R)
+      function getBorderColor(reklama) {
+        switch (reklama) {
+          case "LED":
+            return "red";
+          case "Lightbox":
+            return "blue";
+          case "X":
+            return "green";
+          default:
+            return "black";
+        }
+      }
+      // Если реклама задана, то делаем обводку жирнее
+      function getBorderWidth(reklama) {
+        if (reklama === "LED" || reklama === "Lightbox" || reklama === "X") {
+          return 3;
+        }
+        return 1;
+      }
+
+      // Создание кастомного div‑иконки для маркера, учитывающей столбцы M, Q, R и S
+      function createMarkerIcon(item) {
+        // Размер маркера – 16px для ПК, 32px для мобильных устройств
+        var markerSize = isMobile() ? 32 : 16;
+        // Если в столбце M указано "медиаборд" – квадрат, иначе (например, "+") – круг
+        var shape =
+          item.M && item.M.trim() === "медиаборд" ? "square" : "circle";
+        var fillColor = getFillColor(item.Q);
+        var borderColor = getBorderColor(item.R);
+        var borderWidth = getBorderWidth(item.R);
+        var borderRadius = shape === "circle" ? "50%" : "0%";
+
+        // Если в столбце S указано "питание есть" или "нет питания" – добавляем значок молнии
+        var lightningHTML = "";
+        if (item.S) {
+          var power = item.S.trim().toLowerCase();
+          if (power === "питание есть") {
+            lightningHTML =
+              '<div class="lightning" style="position:absolute; bottom:-2px; right:-2px; color:green; font-size:' +
+              (isMobile() ? "16px" : "10px") +
+              ';">&#9889;</div>';
+          } else if (power === "нет питания") {
+            lightningHTML =
+              '<div class="lightning" style="position:absolute; bottom:-2px; right:-2px; color:red; font-size:' +
+              (isMobile() ? "16px" : "10px") +
+              ';">&#9889;</div>';
           }
+        }
 
-          // Получаем цвет обводки
-          var borderColor = getBorderColor(item);
+        // Формируем HTML для иконки: внешний контейнер с позицией relative,
+        // внутри – основной элемент с нужным размером, цветом заливки и обводкой
+        var html =
+          '<div class="custom-marker" style="position:relative; width:' +
+          markerSize +
+          "px; height:" +
+          markerSize +
+          'px;">' +
+          '<div style="width:100%; height:100%; background-color:' +
+          fillColor +
+          "; border:" +
+          borderWidth +
+          "px solid " +
+          borderColor +
+          '; border-radius:' +
+          borderRadius +
+          ';"></div>' +
+          lightningHTML +
+          "</div>";
 
-          // Проверяем, есть ли табло (столбец M) — достаточно, чтобы было непустое значение
-          if (item.tablo && item.tablo.trim() !== "") {
-            // --- ОСТАНОВКА С ТАБЛО => КВАДРАТ ---
-            var fillColor = getFillColorByStatus(item.status);
-
-            // Создаём divIcon, где через inline-стиль делаем квадрат
-            var squareIcon = L.divIcon({
-              html:
-                '<div style="width:16px; height:16px; ' +
-                'background-color:' + fillColor + '; ' +
-                'border: 2px solid ' + borderColor + '; ' +
-                'border-radius: 0;">' +
-                '</div>',
-              iconSize: [16, 16],
-              iconAnchor: [8, 8], // чтобы центр квадрата совпадал с координатой
-              className: ''       // убираем дефолтные стили Leaflet
-            });
-
-            var marker = L.marker([lat, lng], { icon: squareIcon }).addTo(map);
-
-          } else {
-            // --- ОСТАНОВКА БЕЗ ТАБЛО => КРУГ ---
-            // Цвет заливки — белый
-            var circle = L.circleMarker([lat, lng], {
-              radius: 8,
-              fillColor: "white",
-              fillOpacity: 1,
-              color: borderColor, // обводка
-              weight: 2
-            }).addTo(map);
-
-            var marker = circle; // чтобы далее .bindPopup(marker)
-          }
-
-          // Формируем HTML-текст всплывающего окна
-          // 1) Название остановки (C)
-          // 2) Улица (B)
-          // 3) Направление (D)
-          // 4) Район (E)
-          // 5) ID Остановки (H)
-          // 6) Статус (Q)
-          // 7) Реклама (R)
-          var popupHtml =
-            "<b>Название остановки:</b> " + (item.stopName || "") + "<br>" +
-            "<b>Улица:</b> " + (item.street || "") + "<br>" +
-            "<b>Направление:</b> " + (item.direction || "") + "<br>" +
-            "<b>Район:</b> " + (item.region || "") + "<br>" +
-            "<b>ID Остановки:</b> " + (item.stopId || "") + "<br>" +
-            "<b>Статус:</b> " + (item.status || "") + "<br>" +
-            "<b>Реклама:</b> " + (item.reklama || "");
-
-          // Привязываем popup
-          marker.bindPopup(popupHtml);
+        return L.divIcon({
+          html: html,
+          className: "", // убираем стандартный класс
+          iconSize: [markerSize, markerSize],
+          iconAnchor: [markerSize / 2, markerSize / 2]
         });
-      })
-      .catch(err => {
-        console.error("Ошибка при загрузке JSON:", err);
+      }
+
+      // Задайте вашу ссылку на задеплоенный Apps Script
+      var url =
+        "https://script.google.com/macros/s/AKfycbw02IfURjZsCIZsckiRYKt_kawJ4OlazkNILhw4cGwSj-9cdAXzbP6AtNWWr3zNFnky/exec";
+
+      // Загружаем данные в формате JSON
+      fetch(url)
+        .then((response) => response.json())
+        .then((data) => {
+          console.log("Данные из Apps Script:", data);
+          data.forEach(function (item) {
+            // Преобразуем координаты (должны приходить в полях lat и lng)
+            var lat = parseFloat(item.lat);
+            var lng = parseFloat(item.lng);
+            if (isNaN(lat) || isNaN(lng)) {
+              return;
+            }
+
+            // Создаём иконку для маркера с учетом данных из столбцов M, Q, R, S
+            var icon = createMarkerIcon(item);
+            var marker = L.marker([lat, lng], { icon: icon }).addTo(map);
+            // Сохраняем данные в самом маркере (для поиска)
+            marker.itemData = item;
+            markers.push(marker);
+
+            // Формируем HTML-всплывашку (popup) – данные согласно инструкциям:
+            // Название остановки (столбец C), Улица (B), Направление (D),
+            // Район (E), ID Остановки (H), Статус (Q), Реклама (R)
+            var popupHtml =
+              "<b>Название остановки:</b> " +
+              (item.C || "") +
+              "<br>" +
+              "<b>Улица:</b> " +
+              (item.B || "") +
+              "<br>" +
+              "<b>Направление:</b> " +
+              (item.D || "") +
+              "<br>" +
+              "<b>Район:</b> " +
+              (item.E || "") +
+              "<br>" +
+              "<b>ID Остановки:</b> " +
+              (item.H || "") +
+              "<br>" +
+              "<b>Статус:</b> " +
+              (item.Q || "") +
+              "<br>" +
+              "<b>Реклама:</b> " +
+              (item.R || "");
+            marker.bindPopup(popupHtml);
+          });
+        })
+        .catch((err) => {
+          console.error("Ошибка при загрузке JSON:", err);
+        });
+
+      // --- Добавляем пользовательские контролы ---
+
+      // 1. Контрол уведомлений (левый верхний угол)
+      var NotificationControl = L.Control.extend({
+        options: {
+          position: "topleft"
+        },
+        onAdd: function (map) {
+          var container = L.DomUtil.create("div", "custom-control");
+          container.innerHTML = "&#128276;"; // иконка звонка
+          container.title = "Уведомления";
+          container.style.fontSize = isMobile() ? "24px" : "16px";
+          L.DomEvent.disableClickPropagation(container);
+          container.onclick = function () {
+            alert(
+              "Изменения: Остановка в столбце 'Статус' изменена на 'снят табло'"
+            );
+          };
+          return container;
+        }
       });
-  </script>
-</body>
+      map.addControl(new NotificationControl());
+
+      // 2. Контрол поиска (правый верхний угол)
+      var SearchControl = L.Control.extend({
+        options: {
+          position: "topright"
+        },
+        onAdd: function (map) {
+          var container = L.DomUtil.create("div", "custom-control");
+          container.style.background = "white";
+          container.style.padding = "5px";
+          container.innerHTML =
+            '<input id="searchBox" type="text" placeholder="Поиск остановки или ID" style="width:150px;">';
+          L.DomEvent.disableClickPropagation(container);
+          return container;
+        }
+      });
+      map.addControl(new SearchControl());
+
+      // Реализуем поиск – при нажатии Enter в поле поиска перебираем все маркеры
+      document
+        .getElementById("searchBox")
+        .addEventListener("keyup", function (e) {
+          if (e.key === "Enter") {
+            var query = this.value.toLowerCase().trim();
+            if (query === "") return;
+            var found = false;
+            markers.forEach(function (marker) {
+              var item = marker.itemData;
+              // Ищем по названию остановки (столбец C) или ID (столбец H)
+              if (
+                (item.C && item.C.toLowerCase().indexOf(query) !== -1) ||
+                (item.H && item.H.toLowerCase().indexOf(query) !== -1)
+              ) {
+                map.setView(marker.getLatLng(), 15);
+                marker.openPopup();
+                found = true;
+              }
+            });
+            if (!found) {
+              alert("Остановка не найдена");
+            }
+          }
+        });
+
+      // 3. Контрол легенды (правый нижний угол)
+      var LegendControl = L.Control.extend({
+        options: {
+          position: "bottomright"
+        },
+        onAdd: function (map) {
+          var container = L.DomUtil.create("div", "custom-control");
+          container.innerHTML = "&#9432;"; // иконка информации
+          container.title = "Легенда";
+          container.style.fontSize = isMobile() ? "24px" : "16px";
+          L.DomEvent.disableClickPropagation(container);
+          container.onclick = function () {
+            var legendPanel = document.getElementById("legendPanel");
+            if (legendPanel.style.display === "block") {
+              legendPanel.style.display = "none";
+            } else {
+              legendPanel.style.display = "block";
+              legendPanel.innerHTML =
+                "<b>Легенда:</b><br>" +
+                "<span style='color:#00FF00;'>■</span> Работает (ярко зеленый)<br>" +
+                "<span style='color:#FF0000;'>■</span> Не работает (красный)<br>" +
+                "<span style='color:gray;'>■</span> Снят табло (серый)<br>" +
+                "<span style='color:black;'>■</span> Демонтирован (черный)<br>" +
+                "<span style='color:red;'>&#9889;</span> Нет питания (красная молния)<br>" +
+                "<span style='color:green;'>&#9889;</span> Питание есть (зеленая молния)<br>" +
+                "■ – Квадратик (медиаборд)<br>" +
+                "● – Круг (табло старое)";
+            }
+          };
+          return container;
+        }
+      });
+      map.addControl(new LegendControl());
+
+      // Закрываем панель легенды при нажатии на карту (необязательно)
+      map.on("click", function () {
+        var legendPanel = document.getElementById("legendPanel");
+        if (legendPanel.style.display === "block") {
+          legendPanel.style.display = "none";
+        }
+      });
+    </script>
+  </body>
 </html>
