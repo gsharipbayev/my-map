@@ -39,7 +39,7 @@
         z-index: 1000;
       }
       /* Для мобильных устройств – увеличенные размеры */
-      @media (max-width: 768px) {
+      @media (max-width:768px) {
         .custom-marker {
           width: 64px !important;
           height: 64px !important;
@@ -79,8 +79,8 @@
        * N: Очередь ITS                  → row[13]
        * O: План                         → row[14]
        * P: Пассажирообразующие          → row[15]
-       * Q: Статус                       → row[16]   ← Цвет заливки
-       * R: Реклама                      → row[17]   ← Обводка (цвет и толщина)
+       * Q: Статус                       → row[16]   ← Определяет цвет заливки
+       * R: Реклама                      → row[17]   ← Определяет цвет/толщину обводки
        * S: Питание                      → row[18]   ← Значок молнии
        ***************************************************************/
 
@@ -88,7 +88,7 @@
       var map = L.map("map").setView([51.09, 71.45], 11);
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(map);
 
-      // Массив для хранения маркеров (для поиска)
+      // Массив для хранения маркеров
       var markers = [];
 
       // Функция для определения, мобильное ли устройство
@@ -130,7 +130,7 @@
         var val = normalize(value);
         if (val === "медиаборд") return "square";
         if (val === "+") return "circle";
-        return "circle"; // по умолчанию круг
+        return "circle";
       }
 
       // Функция для формирования значка молнии (из столбца S, row[18])
@@ -152,13 +152,12 @@
       function createMarkerIcon(row) {
         // Масштаб увеличен: для ПК – 32px, для мобильных – 64px
         var markerSize = isMobile() ? 64 : 32;
-        var shape = getShape(row[12]);           // Значение из столбца M (row[12])
-        var fillColor = getFillColor(row[16]);     // Статус из столбца Q (row[16])
-        var borderColor = getBorderColor(row[17]); // Реклама из столбца R (row[17])
+        var shape = getShape(row[12]);           // Форма берётся из столбца M (row[12])
+        var fillColor = getFillColor(row[16]);     // Цвет заливки – из столбца Q (row[16])
+        var borderColor = getBorderColor(row[17]); // Цвет обводки – из столбца R (row[17])
         var borderWidth = getBorderWidth(row[17]); // Толщина обводки
         var borderRadius = (shape === "circle") ? "50%" : "0%";
-        var lightningHTML = getLightningHTML(row[18]); // Значение из столбца S (row[18])
-
+        var lightningHTML = getLightningHTML(row[18]); // Значок молнии из столбца S (row[18])
         var html =
           '<div class="custom-marker" style="position:relative; width:' + markerSize + 'px; height:' + markerSize + 'px;">' +
             '<div style="width:100%; height:100%; background-color:' + fillColor +
@@ -166,7 +165,6 @@
             '; border-radius:' + borderRadius + ';"></div>' +
             lightningHTML +
           '</div>';
-
         return L.divIcon({
           html: html,
           className: "",
@@ -175,7 +173,7 @@
         });
       }
 
-      // URL вашего Apps Script – убедитесь, что диапазон охватывает столбцы A:S (то есть 19 столбцов)
+      // URL вашего Apps Script (убедитесь, что диапазон охватывает столбцы A:S)
       var url = "https://script.google.com/macros/s/AKfycbw02IfURjZsCIZsckiRYKt_kawJ4OlazkNILhw4cGwSj-9cdAXzbP6AtNWWr3zNFnky/exec";
 
       // Загрузка данных из Apps Script
@@ -186,12 +184,14 @@
           data.forEach(function(item, index) {
             // Предполагаем, что данные строки возвращаются как массив (либо в item.data, либо как сам item)
             var row = item.data || item;
-            if (!Array.isArray(row)) { row = Object.values(row); }
+            if (!Array.isArray(row)) {
+              row = Object.values(row);
+            }
             console.log("Строка", index, ":", row);
             // Если длина строки меньше 19, дополним отсутствующие ячейки пустыми строками
             if (row.length < 19) {
-              for (var i = row.length; i < 19; i++) {
-                row[i] = "";
+              while (row.length < 19) {
+                row.push("");
               }
               console.log("После дополнения:", row);
             }
@@ -202,7 +202,7 @@
               console.warn("Неверные координаты для строки", index, row);
               return;
             }
-            // Для popup: используем данные:
+            // Для popup:
             // Наименование улицы (B) → row[1]
             // Название остановок (C) → row[2]
             // Направление (D) → row[3]
@@ -225,7 +225,6 @@
               "<b>ID Табло:</b> " + stopId + "<br>" +
               "<b>Статус:</b> " + status + "<br>" +
               "<b>Реклама:</b> " + reklama;
-              
             var icon = createMarkerIcon(row);
             var marker = L.marker([lat, lng], { icon: icon }).addTo(map);
             marker.rowData = row;
