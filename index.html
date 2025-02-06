@@ -2,9 +2,12 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>Leaflet Map с поправленными индексами (сдвиг на 1)</title>
+    <title>Leaflet Map с увеличенным масштабом и значениями по умолчанию</title>
     <!-- Подключаем Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
+    />
     <style>
       /* Карта на весь экран */
       html,
@@ -42,8 +45,8 @@
       /* Для мобильных устройств – увеличенные размеры */
       @media (max-width: 768px) {
         .custom-marker {
-          width: 32px !important;
-          height: 32px !important;
+          width: 64px !important;
+          height: 64px !important;
         }
         .custom-control {
           font-size: 24px;
@@ -163,7 +166,8 @@
 
       // Функция для создания иконки маркера (используя данные строки row)
       function createMarkerIcon(row) {
-        var markerSize = isMobile() ? 32 : 16;
+        // Увеличиваем масштаб в 2 раза: для мобильных устройств — 64, для ПК — 32
+        var markerSize = isMobile() ? 64 : 32;
         var shape = getShape(row[11]);           // Форма (M) → row[11]
         var fillColor = getFillColor(row[15]);     // Статус (Q) → row[15]
         var borderColor = getBorderColor(row[16]); // Реклама (R) → row[16]
@@ -197,26 +201,35 @@
           console.log("Получены данные из Apps Script:", data);
           data.forEach(function(item, index) {
             console.log("Элемент", index, ":", item);
-            // Предполагаем, что данные строки могут быть либо в item.data, либо прямо в item
+            // Получаем строку данных (либо item.data, либо item)
             var row = item.data || item;
             if (!Array.isArray(row)) {
               row = Object.values(row);
             }
             console.log("Обработка строки, длина =", row.length, "данные:", row);
-            // Если длина строки меньше 21, заполним отсутствующие столбцы пустыми строками
+
+            // Если длина строки меньше 21, дополним отсутствующие столбцы пустыми строками
             if (row.length < 21) {
               for (var i = row.length; i < 21; i++) {
                 row[i] = "";
               }
               console.log("После дополнения длина строки =", row.length, row);
             }
+
+            // Если столбцы Статус (row[15]) и Реклама (row[16]) пустые, задаём значения по умолчанию
+            if (!row[15] || normalize(row[15]) === "") {
+              row[15] = "работает";
+            }
+            if (!row[16] || normalize(row[16]) === "") {
+              row[16] = "led";
+            }
+
             // Определяем координаты:
             // Если заданы свойства lat/lng, используем их,
-            // иначе предполагаем, что они находятся в row[?]
-            // (Если координаты не включены в массив, их нужно передавать через item.lat/item.lng)
+            // иначе предполагаем, что они находятся в row[0] и row[1]
             var lat = (item.lat !== undefined)
                         ? parseFloat(item.lat)
-                        : parseFloat(row[0]); // Если координаты тоже сдвинуты, убедитесь, что они правильно передаются
+                        : parseFloat(row[0]);
             var lng = (item.lng !== undefined)
                         ? parseFloat(item.lng)
                         : parseFloat(row[1]);
@@ -306,7 +319,8 @@
         options: { position: "topright" },
         onAdd: function(map) {
           var container = L.DomUtil.create("div", "custom-control");
-          container.innerHTML = '<input id="searchBox" type="text" placeholder="Поиск остановки или ID" style="width:150px;">';
+          container.innerHTML =
+            '<input id="searchBox" type="text" placeholder="Поиск остановки или ID" style="width:150px;">';
           L.DomEvent.disableClickPropagation(container);
           return container;
         }
