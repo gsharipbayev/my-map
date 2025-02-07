@@ -1,8 +1,28 @@
-var url = "https://script.google.com/macros/s/AKfycbw02IfURjZsCIZsckiRYKt_kawJ4OlazkNILhw4cGwSj-9cdAXzbP6AtNWWr3zNFnky/exec";
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>My Map</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+  <style>
+    html, body { margin:0; padding:0; height:100%; }
+    #map { width:100%; height:100%; }
+  </style>
+</head>
+<body>
+<div id="map"></div>
 
-// Список известных статусов и примечаний
+<!-- Подключаем Leaflet -->
+<script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+
+<!-- Ваш JS-код -->
+<script>
+var url = "https://script.google.com/macros/s/AKfycbw02IfURjZsCIZsckiRYKt_kawJ4OlazkNILhw4cGwSj-9cdAXzbP6AtNWWr3zNFnky/exec";
 var knownStatuses = ["работает","не работает","демонтирован","снят табло"];
 var knownPower = ["нет питания","питание есть"];
+
+var map = L.map("map").setView([51.09, 71.45], 11);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom:19 }).addTo(map);
 
 fetch(url)
   .then(r => r.json())
@@ -13,30 +33,32 @@ fetch(url)
       if (!Array.isArray(row)) row = Object.values(row);
       while (row.length < 19) row.push("");
 
-      console.log("Строка #" + (i+1), row);
-
       let lat = parseFloat(row[5]);
       let lng = parseFloat(row[6]);
       if (isNaN(lat) || isNaN(lng)) {
-        console.warn("❗ Неверные координаты:", row[5], row[6]);
+        console.warn("Неверные координаты:", row[5], row[6]);
+        return;
       }
 
-      let st = normalize(row[16]);
-      if (!st) {
-        console.warn("❗ Статус пустой / не указан");
-      } else {
-        let foundStatus = knownStatuses.some(s => st.includes(s));
-        if (!foundStatus) {
-          console.warn("⚠ Неизвестный статус:", row[16]);
-        }
-      }
+      let status = normalize(row[16]);
+      let color = "#ffffff";
+      if (status.includes("не работает")) color = "red";
+      if (status.includes("демонт"))      color = "black";
+      if (status.includes("снят"))        color = "gray";
+      if (status.includes("работает"))    color = "lime";
 
-      let pw = normalize(row[18]);
-      if (pw) {
-        let isKnownPower = knownPower.some(p => pw.includes(p));
-        if (!isKnownPower) {
-          console.warn("⚠ Неизвестная отметка по питанию:", row[18]);
-        }
+      L.circleMarker([lat, lng], {
+        radius: 7,
+        color: "black",
+        fillColor: color,
+        fillOpacity: 0.8
+      })
+      .bindPopup("Остановка: " + (row[2] || "Без названия") + "<br>Статус: " + row[16])
+      .addTo(map);
+
+      let note = normalize(row[18]);
+      if (note && !knownPower.some(p => note.includes(p))) {
+        console.warn("Неизвестная отметка по питанию:", row[18]);
       }
     });
     console.log("Проверка завершена.");
@@ -44,9 +66,10 @@ fetch(url)
   .catch(err => console.error("Ошибка загрузки данных:", err));
 
 function normalize(str) {
-  // расширено для дополнительной очистки
-  // (вместо inlining, используем повторно)
   return str
     ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim()
     : "";
 }
+</script>
+</body>
+</html>
