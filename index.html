@@ -1,115 +1,52 @@
-// Поставьте здесь ваш реальный URL к Apps Script:
 var url = "https://script.google.com/macros/s/AKfycbw02IfURjZsCIZsckiRYKt_kawJ4OlazkNILhw4cGwSj-9cdAXzbP6AtNWWr3zNFnky/exec";
 
-// Массив слов, которые "узнаём" как статусы:
-var knownStatuses = [
-  "работает",
-  "не работает",
-  "демонтирован",
-  "снят табло"
-];
-
-// Массив слов/фраз для питания:
-var knownPower = [
-  "нет питания",
-  "питание есть"
-];
+// Список известных статусов и примечаний
+var knownStatuses = ["работает","не работает","демонтирован","снят табло"];
+var knownPower = ["нет питания","питание есть"];
 
 fetch(url)
-  .then(response => response.json())
+  .then(r => r.json())
   .then(data => {
-    console.log("%cДанные успешно загружены.", "color: green; font-weight: bold;");
     console.log("Всего строк:", data.length);
-
     data.forEach((item, i) => {
-      // Достаём массив row (в зависимости от того, как приходит)
-      var row = item.data || item;
-      if (!Array.isArray(row)) {
-        row = Object.values(row);
-      }
-      // Убедимся, что минимум 19 столбцов
-      while (row.length < 19) {
-        row.push("");
-      }
+      let row = item.data || item;
+      if (!Array.isArray(row)) row = Object.values(row);
+      while (row.length < 19) row.push("");
 
-      // Можно оформить логику в виде группы (чтобы сворачивать/разворачивать в консоли):
-      console.group("Строка #" + (i + 1));
+      console.log("Строка #" + (i+1), row);
 
-      // Выведем весь массив для наглядности:
-      console.log("row:", row);
-
-      // Предположим, что:
-      //  - row[5] = широта (F)
-      //  - row[6] = долгота (G)
-      //  - row[16] = статус (Q)
-      //  - row[17] = реклама (R)
-      //  - row[18] = примечание (обычно «нет питания», «питание есть» и т.п.)
-      
-      var latStr   = row[5];
-      var lngStr   = row[6];
-      var status   = row[16];
-      var reklama  = row[17];
-      var power    = row[18];
-
-      // Проверяем координаты:
-      var lat = parseFloat(latStr);
-      var lng = parseFloat(lngStr);
-
+      let lat = parseFloat(row[5]);
+      let lng = parseFloat(row[6]);
       if (isNaN(lat) || isNaN(lng)) {
-        console.warn("❗ Неверные координаты lat/lng →", latStr, lngStr);
-      } else {
-        // Если нужно, проверим, не вышли ли за границы разумных значений
-        // (к примеру, в Астане широта ~ 51, долгота ~ 71)
-        if (lat < 50 || lat > 52 || lng < 70 || lng > 73) {
-          console.warn("❗ Координаты выглядят странно для Астаны:", lat, lng);
-        } else {
-          console.log("Координаты ОК:", lat, lng);
-        }
+        console.warn("❗ Неверные координаты:", row[5], row[6]);
       }
 
-      // Проверяем статус (нормализуем)
-      var st = normalize(status);
+      let st = normalize(row[16]);
       if (!st) {
-        console.warn("❗ Статус пустой/не указан");
+        console.warn("❗ Статус пустой / не указан");
       } else {
-        // Смотрим, узнаём ли мы этот статус
-        var isKnown = false;
-        knownStatuses.forEach(function(s) {
-          // Если статус содержит ключевое слово (например, "не работает")
-          if (st.includes(s)) {
-            isKnown = true;
-          }
-        });
-        if (!isKnown) {
-          console.warn("⚠ Неизвестный/нестандартный статус:", status);
-        } else {
-          console.log("Статус:", status);
+        let foundStatus = knownStatuses.some(s => st.includes(s));
+        if (!foundStatus) {
+          console.warn("⚠ Неизвестный статус:", row[16]);
         }
       }
 
-      // Проверяем питание
-      var pw = normalize(power);
+      let pw = normalize(row[18]);
       if (pw) {
-        var isKnownPower = knownPower.some(p => pw.includes(p));
+        let isKnownPower = knownPower.some(p => pw.includes(p));
         if (!isKnownPower) {
-          // Если не содержится ни "нет питания", ни "питание есть"
-          console.warn("⚠ Примечание (питание) неузнаваемо:", power);
-        } else {
-          console.log("Примечание (питание):", power);
+          console.warn("⚠ Неизвестная отметка по питанию:", row[18]);
         }
       }
-
-      // Можно проверить «рекламу» (row[17]) или любые другие столбцы — по аналогии
-      console.groupEnd();
     });
-
-    console.log("%cПроверка завершена.", "color: blue; font-weight: bold;");
+    console.log("Проверка завершена.");
   })
-  .catch(error => {
-    console.error("Ошибка загрузки данных:", error);
-  });
+  .catch(err => console.error("Ошибка загрузки данных:", err));
 
-// Функция нормализации (trim + toLowerCase)
 function normalize(str) {
-  return str ? str.toString().trim().toLowerCase() : "";
+  // расширено для дополнительной очистки
+  // (вместо inlining, используем повторно)
+  return str
+    ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim()
+    : "";
 }
