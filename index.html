@@ -74,19 +74,25 @@
     }
 
     // b) Цвет обводки для "не работает/снят/демонтирован" по питанию
+    // Проверим в тексте "есть" => зелёный, иначе красный
     function getPowerColor(powerValue) {
-      // powerValue = "да" или "нет"
-      if (powerValue === "да") return "green";
-      else return "red";
+      // powerValue могут быть "питание есть", "да", "нет" и т.п.
+      // Приведём всё к lowercase и проверим подстроку "есть" или "да"
+      var lv = powerValue.toLowerCase();
+      if (lv.includes("есть") || lv.includes("да")) {
+        return "green";
+      } else {
+        return "red";
+      }
     }
 
     // c) Создаём иконку-квадрат (для Медиаборда)
-    function createSquareIcon(borderColor) {
+    function createSquareIcon(fillColor) {
       return L.divIcon({
         html:
           '<div style="width:16px; height:16px; ' +
-          'background-color:white; ' +
-          'border: 2px solid ' + borderColor + '; ' +
+          'background-color:' + fillColor + '; ' +
+          'border: 2px solid ' + fillColor + '; ' +
           'border-radius: 0;">' +
           '</div>',
         iconSize: [16, 16],
@@ -96,12 +102,12 @@
     }
 
     // d) Создаём круг (для Табло) — circleMarker
-    function createCircleMarker(lat, lng, borderColor) {
+    function createCircleMarker(lat, lng, color) {
       return L.circleMarker([lat, lng], {
         radius: 8,
-        fillColor: "white",
+        fillColor: color,
         fillOpacity: 1,
-        color: borderColor,
+        color: color,
         weight: 2
       });
     }
@@ -149,54 +155,55 @@
           if (isNaN(lat) || isNaN(lng)) return; // пропускаем некорректные координаты
 
           // Статус
-          var status = (item.status || "").trim().toLowerCase(); 
+          var statusRaw = (item.status || "").trim();
+          var status = statusRaw.toLowerCase(); 
           // Возможные варианты: "работает", "не работает", "снят табло", "демонтирован" 
           
           // Тип (M) => "Табло" или "Медиаборд"
-          var typeM = (item.tablo || "").trim();  // в столбце M
+          // Могут быть вариации "Табло", "табло", "Mediabord", "медиаборд" и т.п.
+          var typeMRaw = (item.tablo || "").trim();
+          var typeM = typeMRaw.toLowerCase();
 
           // Реклама (R)
           var reklama = (item.reklama || "").trim();
 
           // Питание (S)
-          var powerValue = (item.power || "").trim().toLowerCase(); // "да" или "нет"
+          var powerValueRaw = (item.power || "").trim();
 
           // --- Определяем, в какую группу пойдёт ---
           // Группа "рабочие" (workingGroup), если status == "работает"
           // Группа "не рабочие" (notWorkingGroup), если status in ["не работает", "демонтирован", "снят табло"]
-          var isWorking = (status === "работает");
-          var isNotWorking = (status === "не работает" || status === "демонтирован" || status === "снят табло");
+          var isWorking = (status.includes("работает"));
+          var isNotWorking = (status.includes("не работает") || status.includes("демонтирован") || status.includes("снят"));
 
           // Если не подходит ни в одну категорию — пропустим
-          if (!isWorking && !isNotWorking) return;
+          if (!isWorking && !isNotWorking) {
+            console.log("Пропущен статус", statusRaw);
+            return;
+          }
 
           // --- Создаём маркер в зависимости от M ---
-          // Если M = "Табло" => круг; если M = "Медиаборд" => квадрат
+          // Если M содержит "табло" => круг; если M содержит "медиаборд" => квадрат
           var marker;
+          var markerColor;
 
-          if (typeM === "Табло") {
-            // Табло => круг
-            if (isWorking) {
-              // обводка по рекламе
-              var borderColor = getReklamaColor(reklama);
-              marker = createCircleMarker(lat, lng, borderColor);
-            } else {
-              // обводка по питанию
-              var borderColor = getPowerColor(powerValue);
-              marker = createCircleMarker(lat, lng, borderColor);
-            }
+          if (isWorking) {
+            // Рабочее => цвет по рекламе
+            markerColor = getReklamaColor(reklama);
+          } else {
+            // Не рабочее => цвет по питанию
+            markerColor = getPowerColor(powerValueRaw);
           }
-          else if (typeM === "Медиаборд") {
+
+          if (typeM.includes("табло")) {
+            // Табло => круг
+            marker = createCircleMarker(lat, lng, markerColor);
+          } else if (typeM.includes("медиаборд")) {
             // Медиаборд => квадрат
-            if (isWorking) {
-              var borderColor = getReklamaColor(reklama);
-              marker = L.marker([lat, lng], { icon: createSquareIcon(borderColor) });
-            } else {
-              var borderColor = getPowerColor(powerValue);
-              marker = L.marker([lat, lng], { icon: createSquareIcon(borderColor) });
-            }
+            marker = L.marker([lat, lng], { icon: createSquareIcon(markerColor) });
           } else {
             // Если не "Табло" и не "Медиаборд", пропустим
+            console.log("Пропущен тип", typeMRaw);
             return;
           }
 
