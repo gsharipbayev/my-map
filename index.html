@@ -4,11 +4,11 @@
   <meta charset="utf-8"/>
   <title>Leaflet Map (Sheets + Apps Script)</title>
   
-  <!-- CSS Leaflet -->
+  <!-- Подключаем Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"/>
-  
+
   <style>
-    /* Полноэкранная карта */
+    /* Карта на весь экран */
     html, body {
       margin: 0;
       padding: 0;
@@ -19,12 +19,12 @@
       height: 100%;
     }
 
-    /* Кнопка переключения */
+    /* Кнопка переключения слоёв */
     .toggle-btn {
       position: absolute;
       bottom: 20px;
       right: 20px;
-      z-index: 9999; /* Чтобы не перекрывалась картой */
+      z-index: 9999; /* чтобы не перекрывалась картой */
       padding: 10px 15px;
       background-color: #fff;
       border: 2px solid #666;
@@ -40,16 +40,16 @@
 </head>
 <body>
   <div id="map"></div>
-  <div class="toggle-btn" id="toggleBtn">Показать НЕ_работает</div> 
-  
-  <!-- JS Leaflet -->
+  <div class="toggle-btn" id="toggleBtn">Показать НЕ_работает</div>
+
+  <!-- Подключаем Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
-  
+
   <script>
-    // 1) Инициализация карты
-    var map = L.map('map').setView([51.09, 71.45], 11); 
-    
-    // 2) Подключение тайлов (OpenStreetMap)
+    // 1) Инициализируем карту
+    var map = L.map('map').setView([51.09, 71.45], 11);
+
+    // 2) Подключаем тайлы (OpenStreetMap)
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19
     }).addTo(map);
@@ -57,170 +57,201 @@
     // 3) ВАША ссылка на задеплоенный скрипт
     var url = "https://script.google.com/macros/s/AKfycbw02IfURjZsCIZsckiRYKt_kawJ4OlazkNILhw4cGwSj-9cdAXzbP6AtNWWr3zNFnky/exec";
 
-    // --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
+    /* -------------------------------------------------------------------
+       ФУНКЦИИ ДЛЯ ОПРЕДЕЛЕНИЯ ЦВЕТОВ
+       ------------------------------------------------------------------- */
 
-    // a) Цвет обводки для "рабочих" по рекламе
-    function getReklamaColor(reklama) {
+    // Цвет заливки по статусу (столбец M):
+    // "работает" => #00FF00 (ярко-зеленый)
+    // "не работает" => #FF0000 (красный)
+    // "снят" => #AAAAAA (ярко-серый)
+    // "демонтирован" => #555555 (темно-серый)
+    function getStatusFill(status) {
+      var st = status.toLowerCase();
+      if (st.includes('работает')) {
+        return '#00FF00';
+      } else if (st.includes('не работает')) {
+        return '#FF0000';
+      } else if (st.includes('снят')) {
+        return '#AAAAAA';
+      } else if (st.includes('демонт')) {
+        return '#555555';
+      }
+      // по умолчанию
+      return '#FFFFFF';
+    }
+
+    // Цвет обводки для "рабочего" (по рекламе, столбец R)
+    // LED => жирная красная обводка (#FF0000) + белая тонкая (#FFFFFF)
+    // Lightbox => жирная синяя (#0000FF) + белая тонкая (#FFFFFF)
+    // None => жирная зеленая (#00FF00) + черная тонкая (#000000)
+    // Иначе по умолчанию => (outer:#000000, inner:#FFFFFF)
+    function getReklamaBorder(reklama) {
       switch (reklama) {
-        case "LED":
-          return "red";
-        case "Lightbox":
-          return "blue";
-        case "X":
-          return "green";
+        case 'LED':
+          return { outer: '#FF0000', inner: '#FFFFFF' };
+        case 'Lightbox':
+          return { outer: '#0000FF', inner: '#FFFFFF' };
+        case 'None':
+          return { outer: '#00FF00', inner: '#000000' };
         default:
-          return "black"; 
+          return { outer: '#000000', inner: '#FFFFFF' };
       }
     }
 
-    // b) Цвет обводки для "не работает/снят/демонтирован" по питанию
-    // Проверим в тексте "есть" => зелёный, иначе красный
-    function getPowerColor(powerValue) {
-      // powerValue могут быть "питание есть", "да", "нет" и т.п.
-      // Приведём всё к lowercase и проверим подстроку "есть" или "да"
-      var lv = powerValue.toLowerCase();
-      if (lv.includes("есть") || lv.includes("да")) {
-        return "green";
+    // Цвет обводки для "нерабочего" (по питанию, столбец S)
+    // если "да" => жирная ярко-зелёная (#00FF00) + белая тонкая (#FFFFFF)
+    // если "нет" => жирная ярко-красная (#FF0000) + белая тонкая (#FFFFFF)
+    // иначе по умолчанию => (outer:#000000, inner:#FFFFFF)
+    function getPowerBorder(powerValue) {
+      var val = powerValue.toLowerCase().trim();
+      if (val === 'да') {
+        return { outer: '#00FF00', inner: '#FFFFFF' };
+      } else if (val === 'нет') {
+        return { outer: '#FF0000', inner: '#FFFFFF' };
       } else {
-        return "red";
+        return { outer: '#000000', inner: '#FFFFFF' };
       }
     }
 
-    // c) Создаём иконку-квадрат (для Медиаборда)
-    function createSquareIcon(fillColor) {
+    /* -------------------------------------------------------------------
+       СОЗДАНИЕ КАСТОМНОГО ICON
+       ------------------------------------------------------------------- */
+
+    // Единственная точка входа для создания иконок
+    // - status (для заливки)
+    // - reklama (для рабочей обводки)
+    // - power (для нерабочей обводки)
+    // - isTablo (true => круг, false => квадрат)
+    // - isWorking (true => рекламная обводка, false => обводка по питанию)
+    function createCustomIcon(status, reklama, power, isTablo, isWorking) {
+      // fillColor => статус
+      var fillColor = getStatusFill(status);
+
+      // borderColors => реклама (если isWorking), питание (если неWorking)
+      var borderColors = isWorking
+        ? getReklamaBorder(reklama)
+        : getPowerBorder(power);
+
+      var shape = isTablo ? '50%' : '0'; // круг/квадрат
+
+      // Составим inline-стиль:
+      //  - ширина/высота 16px
+      //  - background-color = fillColor
+      //  - 4px solid border = outer
+      //  - тонкая внутренняя граница (1px) => box-shadow: inset 0 0 0 1px inner
+      //  - border-radius = shape (50% => круг)
+      var style = [
+        'width:16px',
+        'height:16px',
+        'border-radius:' + shape,
+        'background-color:' + fillColor,
+        'border:4px solid ' + borderColors.outer,
+        'box-shadow: inset 0 0 0 1px ' + borderColors.inner
+      ].join(';');
+
+      var html = '<div style="' + style + '"></div>';
+
       return L.divIcon({
-        html:
-          '<div style="width:16px; height:16px; ' +
-          'background-color:' + fillColor + '; ' +
-          'border: 2px solid ' + fillColor + '; ' +
-          'border-radius: 0;">' +
-          '</div>',
-        iconSize: [16, 16],
-        iconAnchor: [8, 8],
+        html: html,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
         className: ''
       });
     }
 
-    // d) Создаём круг (для Табло) — circleMarker
-    function createCircleMarker(lat, lng, color) {
-      return L.circleMarker([lat, lng], {
-        radius: 8,
-        fillColor: color,
-        fillOpacity: 1,
-        color: color,
-        weight: 2
-      });
-    }
+    /* -------------------------------------------------------------------
+       СЛОИ (ГРУППЫ МАРКЕРОВ) + КНОПКА ПЕРЕКЛЮЧЕНИЯ
+       ------------------------------------------------------------------- */
+    var workingGroup = L.layerGroup();    // для "работает"
+    var notWorkingGroup = L.layerGroup(); // для "не работает", "снят табло", "демонтирован"
 
-    // --- Группы маркеров ---
-    var workingGroup = L.layerGroup();       // Для "работает" (и Медиабордов в работе)
-    var notWorkingGroup = L.layerGroup();    // Для "не работает", "снят табло", "демонтирован"
+    var showWorking = true; // по умолчанию включаем рабочие
 
-    // Флажок, какая группа сейчас видна
-    var showWorking = true;
-
-    // Переключение слоев
     function toggleLayers() {
       if (showWorking) {
-        // Удаляем "рабочие"
         map.removeLayer(workingGroup);
-        // Добавляем "не рабочие"
         map.addLayer(notWorkingGroup);
-        // Меняем текст кнопки
         document.getElementById("toggleBtn").textContent = "Показать РАБОТАЕТ";
         showWorking = false;
       } else {
-        // Удаляем "не рабочие"
         map.removeLayer(notWorkingGroup);
-        // Добавляем "рабочие"
         map.addLayer(workingGroup);
-        // Меняем текст кнопки
         document.getElementById("toggleBtn").textContent = "Показать НЕ_работает";
         showWorking = true;
       }
     }
 
-    // Навешиваем обработчик на кнопку
-    document.getElementById("toggleBtn").addEventListener("click", toggleLayers);
+    document.getElementById('toggleBtn').addEventListener('click', toggleLayers);
 
-    // 4) Загружаем JSON
+    /* -------------------------------------------------------------------
+       ЗАГРУЗКА ДАННЫХ
+       ------------------------------------------------------------------- */
     fetch(url)
-      .then(response => response.json())
-      .then(data => {
-        console.log("Данные из Apps Script:", data);
+      .then(function(response){
+        return response.json();
+      })
+      .then(function(data){
+        console.log("Данные:", data);
 
-        data.forEach(function(item) {
+        data.forEach(function(item){
           var lat = parseFloat(item.lat);
           var lng = parseFloat(item.lng);
-          if (isNaN(lat) || isNaN(lng)) return; // пропускаем некорректные координаты
+          if (isNaN(lat) || isNaN(lng)) {
+            return; // пропускаем некорректные координаты
+          }
 
-          // Статус
-          var statusRaw = (item.status || "").trim();
-          var status = statusRaw.toLowerCase(); 
-          // Возможные варианты: "работает", "не работает", "снят табло", "демонтирован" 
-          
-          // Тип (M) => "Табло" или "Медиаборд"
-          // Могут быть вариации "Табло", "табло", "Mediabord", "медиаборд" и т.п.
-          var typeMRaw = (item.tablo || "").trim();
-          var typeM = typeMRaw.toLowerCase();
+          var statusRaw = (item.status || '').trim();
+          var stLower = statusRaw.toLowerCase();
 
-          // Реклама (R)
-          var reklama = (item.reklama || "").trim();
+          // Разделяем на рабочую/нерабочую группу
+          var isWorking = stLower.includes('работает');
+          var isNotWorking = (
+            stLower.includes('не работает') ||
+            stLower.includes('снят') ||
+            stLower.includes('демонт')
+          );
 
-          // Питание (S)
-          var powerValueRaw = (item.power || "").trim();
-
-          // --- Определяем, в какую группу пойдёт ---
-          // Группа "рабочие" (workingGroup), если status == "работает"
-          // Группа "не рабочие" (notWorkingGroup), если status in ["не работает", "демонтирован", "снят табло"]
-          var isWorking = (status.includes("работает"));
-          var isNotWorking = (status.includes("не работает") || status.includes("демонтирован") || status.includes("снят"));
-
-          // Если не подходит ни в одну категорию — пропустим
+          // если статус не подходит ни туда, ни сюда, пропустим
           if (!isWorking && !isNotWorking) {
-            console.log("Пропущен статус", statusRaw);
+            console.log('Неизвестный статус', statusRaw);
             return;
           }
 
-          // --- Создаём маркер в зависимости от M ---
-          // Если M содержит "табло" => круг; если M содержит "медиаборд" => квадрат
-          var marker;
-          var markerColor;
+          // тип (M) => "Табло" / "Медиаборд"
+          var typeMRaw = (item.tablo || '').toLowerCase();
+          var isTablo = typeMRaw.includes('табло'); // иначе медиаборд
 
-          if (isWorking) {
-            // Рабочее => цвет по рекламе
-            markerColor = getReklamaColor(reklama);
-          } else {
-            // Не рабочее => цвет по питанию
-            markerColor = getPowerColor(powerValueRaw);
-          }
+          // рекламу берём из item.reklama
+          var reklama = (item.reklama || '').trim();
+          // питание (S)
+          var power = (item.power || '').trim(); // "да" / "нет" / etc.
 
-          if (typeM.includes("табло")) {
-            // Табло => круг
-            marker = createCircleMarker(lat, lng, markerColor);
-          } else if (typeM.includes("медиаборд")) {
-            // Медиаборд => квадрат
-            marker = L.marker([lat, lng], { icon: createSquareIcon(markerColor) });
-          } else {
-            // Если не "Табло" и не "Медиаборд", пропустим
-            console.log("Пропущен тип", typeMRaw);
-            return;
-          }
+          // Создаём кастомный маркер
+          var markerIcon = createCustomIcon(
+            statusRaw,       // для заливки
+            reklama,         // для рабочей обводки
+            power,           // для нерабочей обводки
+            isTablo,         // форма
+            isWorking        // выбор обводки
+          );
 
-          // Попап
+          var marker = L.marker([lat, lng], { icon: markerIcon });
+
+          // popup
           var popupHtml =
-            "<b>Название остановки:</b> " + (item.stopName || "") + "<br>" +
-            "<b>Улица:</b> " + (item.street || "") + "<br>" +
-            "<b>Направление:</b> " + (item.direction || "") + "<br>" +
-            "<b>Район:</b> " + (item.region || "") + "<br>" +
-            "<b>ID Остановки:</b> " + (item.stopId || "") + "<br>" +
-            "<b>Статус:</b> " + (item.status || "") + "<br>" +
-            "<b>Реклама:</b> " + (item.reklama || "") + "<br>" +
-            "<b>Питание:</b> " + (item.power || "");
+            '<b>Название остановки:</b> ' + (item.stopName || '') + '<br>' +
+            '<b>Улица:</b> ' + (item.street || '') + '<br>' +
+            '<b>Направление:</b> ' + (item.direction || '') + '<br>' +
+            '<b>Район:</b> ' + (item.region || '') + '<br>' +
+            '<b>ID Остановки:</b> ' + (item.stopId || '') + '<br>' +
+            '<b>Статус:</b> ' + (item.status || '') + '<br>' +
+            '<b>Реклама:</b> ' + (item.reklama || '') + '<br>' +
+            '<b>Питание (S):</b> ' + (item.power || '');
 
           marker.bindPopup(popupHtml);
 
-          // Добавляем маркер в соответствующую группу
+          // Добавляем в нужную группу
           if (isWorking) {
             workingGroup.addLayer(marker);
           } else {
@@ -228,10 +259,10 @@
           }
         });
 
-        // По умолчанию включаем "рабочие"
+        // по умолчанию показываем "рабочие"
         workingGroup.addTo(map);
       })
-      .catch(err => {
+      .catch(function(err){
         console.error("Ошибка при загрузке JSON:", err);
       });
   </script>
