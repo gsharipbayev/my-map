@@ -49,11 +49,11 @@
       // Иначе по рекламе (R)
       switch (item.reklama) {
         case "LED":
-          return "green";
+          return "red";
         case "Lightbox":
           return "blue";
         case "X":
-          return "red";
+          return "green";
         default:
           return "black"; // по умолчанию
       }
@@ -68,7 +68,9 @@
         case "не работает":
           return "#FF0000"; // ярко-красный
         case "демонтирован":
-          return "gray";    // серый
+          return "black";    // черный
+        case "снят табло":
+          return "#CBD0CC";  // ярко-серый
         default:
           return "white";   // если статус незнакомый, делаем белый
       }
