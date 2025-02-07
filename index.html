@@ -1,100 +1,169 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8">
-  <title>Leaflet Bus Stops</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"/>
+  <meta charset="utf-8" />
+  <title>Расширенный код</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
   <style>
     html,body { margin:0; padding:0; height:100%; }
     #map { width:100%; height:100%; }
+    .custom-control {
+      background: white; padding: 5px; border-radius: 4px;
+      box-shadow: 0 0 5px rgba(0,0,0,0.5); cursor: pointer;
+    }
+    .legend-panel {
+      position: fixed; bottom: 0; left: 0; right: 0; background: white;
+      border-top: 2px solid #ccc; padding: 10px; display: none;
+      height: 15vh; overflow:auto; z-index:1000;
+    }
+    @media (max-width:768px){ .custom-marker{width:32px; height:32px;} }
   </style>
 </head>
 <body>
 <div id="map"></div>
-
-<!-- Leaflet -->
+<div id="legendPanel" class="legend-panel"></div>
 <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
 <script>
-/***************************************************************
- * Настройки
- ***************************************************************/
+// URL
 var url = "https://script.google.com/macros/s/AKfycbw02IfURjZsCIZsckiRYKt_kawJ4OlazkNILhw4cGwSj-9cdAXzbP6AtNWWr3zNFnky/exec";
 
-// Словарь для цвета статуса (если находим подстроку)
-var statusColors = {
-  "не работает": "red",
-  "демонт":      "black",
-  "снят":        "gray",
-  "работает":    "lime"
-};
-
-// Создаём карту Leaflet
-var map = L.map("map", { center:[51.09, 71.45], zoom:11 });
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom:19 }).addTo(map);
-var markersGroup = L.featureGroup().addTo(map);
-
-/***************************************************************
- * Загрузка данных
- ***************************************************************/
-fetch(url)
-  .then(resp => resp.json())
-  .then(data => {
-    console.log("Всего строк:", data.length);
-    data.forEach((item, i) => {
-      var row = item.data || item;
-      if(!Array.isArray(row)) row = Object.values(row);
-      while(row.length < 19) row.push("");
-
-      // Координаты
-      let lat = parseFloat(row[5]);
-      let lng = parseFloat(row[6]);
-      if(isNaN(lat)||isNaN(lng)) {
-        console.warn("❗ Плохие координаты, строка=", i+1, row[5], row[6]);
-        return;
-      }
-
-      // Статус
-      let rawStatus = (row[16] || "").trim();
-      console.log("Строка #"+(i+1)+": статус =", `"${rawStatus}"`);
-
-      // Определим цвет
-      let color = getColorFromStatus(rawStatus);
-
-      // Рисуем круг
-      L.circleMarker([lat,lng], {
-        radius: 7,
-        color: "#333",
-        fillColor: color,
-        fillOpacity: 0.85
-      })
-      .bindPopup(
-        "<b>Улица:</b> " + (row[1]||"") + "<br>"+
-        "<b>Остановка:</b> " + (row[2]||"") + "<br>"+
-        "<b>Статус:</b> " + rawStatus
-      )
-      .addTo(markersGroup);
-    });
-    // Автоподгон
-    if (markersGroup.getBounds().isValid()) {
-      map.fitBounds(markersGroup.getBounds(), { padding:[30,30] });
-    }
-    console.log("Рендер завершён.");
-  })
-  .catch(e => console.error("Ошибка:", e));
-
-/***************************************************************
- * Функции
- ***************************************************************/
-function getColorFromStatus(s) {
-  let st = s.toLowerCase();
-  // Перебираем ключи словаря (\"не работает\", \"демонт\" и т.д.)
-  for (let key in statusColors) {
-    if(st.includes(key)) {
-      return statusColors[key];
-    }
-  }
+// Статусы
+function getStatusColor(s){
+  s = norm(s);
+  if(s.includes("не работ")) return "red";
+  if(s.includes("демонт"))   return "black";
+  if(s.includes("снят"))     return "gray";
+  if(s.includes("работает")) return "lime";
   return "white";
 }
+
+// Питание (иконка "молния")
+function getLightning(row){
+  let note = norm(row[18]);
+  if(note.includes("нет пит")) return "<span style='color:red;'>&#9889;</span>";
+  if(note.includes("питание есть")) return "<span style='color:green;'>&#9889;</span>";
+  return "";
+}
+
+// Мобильность
+function isMobile(){ return window.innerWidth<768; }
+
+// Норм
+function norm(x){ return x ? x.toLowerCase().trim() : ""; }
+
+// Карта
+var map = L.map("map").setView([51.09,71.45],11);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
+  maxZoom:19
+}).addTo(map);
+
+var markersGroup = L.featureGroup().addTo(map);
+var allMarkers = [];
+
+// Легенда
+var legendPanel = document.getElementById("legendPanel");
+
+// Кнопка легенды
+var LegendControl = L.Control.extend({
+  options:{position:"bottomright"},
+  onAdd:function(){
+    var d = L.DomUtil.create("div","custom-control");
+    d.innerHTML = "&#9432;"; d.title = "Легенда";
+    d.onclick = function(){
+      if(legendPanel.style.display=="block") legendPanel.style.display="none";
+      else {
+        legendPanel.style.display="block";
+        legendPanel.innerHTML =
+          "<b>Легенда:</b><br>"+
+          "<span style='color:lime;'>■</span> работает<br>"+
+          "<span style='color:red;'>■</span> не работает<br>"+
+          "<span style='color:gray;'>■</span> снят табло<br>"+
+          "<span style='color:black;'>■</span> демонтирован<br>"+
+          "<span style='color:red;'>&#9889;</span> нет питания<br>"+
+          "<span style='color:green;'>&#9889;</span> питание есть";
+      }
+      L.DomEvent.stopPropagation(d);
+    };
+    return d;
+  }
+});
+map.addControl(new LegendControl());
+map.on("click", ()=>{ if(legendPanel.style.display=="block") legendPanel.style.display="none"; });
+
+// Поиск
+var SearchControl = L.Control.extend({
+  options:{position:"topright"},
+  onAdd:function(){
+    var c = L.DomUtil.create("div","custom-control");
+    c.innerHTML = "<input id='searchBox' type='text' placeholder='Поиск...'>";
+    L.DomEvent.disableClickPropagation(c);
+    return c;
+  }
+});
+map.addControl(new SearchControl());
+
+// Слушаем Enter
+setTimeout(()=>{
+  let sb = document.getElementById("searchBox");
+  if(!sb) return;
+  sb.addEventListener("keyup",function(e){
+    if(e.key=="Enter"){
+      let q = norm(this.value);
+      if(!q) return;
+      let found = false;
+      allMarkers.forEach(m=>{
+        let row = m.row;
+        let name = norm(row[2]); // Название
+        let id   = norm(row[7]); // ID
+        if(name.includes(q)||id.includes(q)){
+          map.setView(m.marker.getLatLng(),15);
+          m.marker.openPopup();
+          found=true;
+        }
+      });
+      if(!found) alert("Не нашли.");
+    }
+  });
+},500);
+
+// Fetch
+fetch(url)
+.then(r=>r.json())
+.then(data=>{
+  if(!data||!data.length){
+    console.warn("Пусто");
+    return;
+  }
+  data.forEach((item,i)=>{
+    let row = item.data||item;
+    if(!Array.isArray(row)) row=Object.values(row);
+    while(row.length<19) row.push("");
+
+    let lat=parseFloat(row[5]), lng=parseFloat(row[6]);
+    if(isNaN(lat)||isNaN(lng)){
+      console.warn("Плохие координаты",i,row[5],row[6]);
+      return;
+    }
+
+    let color = getStatusColor(row[16]);
+    let circle = L.circleMarker([lat,lng],{
+      radius:(isMobile()?12:7),
+      color:"#333", fillColor:color, fillOpacity:0.85
+    }).addTo(markersGroup);
+
+    let html = "<b>Улица:</b> "+(row[1]||"")+"<br>"+
+               "<b>Остановка:</b> "+(row[2]||"")+"<br>"+
+               "<b>Статус:</b> "+(row[16]||"")+" "+getLightning(row);
+    circle.bindPopup(html);
+
+    allMarkers.push({marker:circle,row:row});
+  });
+
+  if(markersGroup.getLayers().length>0)
+    map.fitBounds(markersGroup.getBounds(),{padding:[50,50]});
+  console.log("Готово, всего маркеров:", markersGroup.getLayers().length);
+})
+.catch(e=>console.error("Ошибка",e));
 </script>
 </body>
 </html>
