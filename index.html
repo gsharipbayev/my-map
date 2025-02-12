@@ -144,6 +144,54 @@
     }).addTo(map);
 
     var currentPanel = null;
+    var markers = [];
+
+    // URL для Google Apps Script
+    var sheetUrl = 'https://script.google.com/macros/s/AKfycbw02IfURjZsCIZsckiRYKt_kawJ4OlazkNILhw4cGwSj-9cdAXzbP6AtNWWr3zNFnky/exec';
+
+    // Загрузка данных из Google Sheets
+    fetch(sheetUrl)
+      .then(response => response.json())
+      .then(data => {
+        data.forEach(item => {
+          var customIcon = createCustomIcon(item.status, item.reklama);
+          var marker = L.marker([parseFloat(item.lat), parseFloat(item.lng)], { icon: customIcon }).addTo(map);
+          marker.status = item.status.toLowerCase();
+          marker.reklama = item.reklama;
+          marker.bindPopup(`<b>${item.stopName}</b><br>Статус: ${item.status}<br>Реклама: ${item.reklama}`);
+          markers.push(marker);
+        });
+      })
+      .catch(err => console.error('Ошибка загрузки данных:', err));
+
+    function createCustomIcon(status, reklama) {
+      var fillColor = getStatusColor(status);
+      var borderColor = getReklamaColor(reklama);
+
+      return L.divIcon({
+        className: '',
+        html: `<div style="width: 20px; height: 20px; background-color: ${fillColor}; border: 3px solid ${borderColor}; border-radius: 50%;"></div>`
+      });
+    }
+
+    function getStatusColor(status) {
+      switch (status.toLowerCase()) {
+        case 'работает': return '#00FF00';
+        case 'не работает': return '#FF0000';
+        case 'снят': return '#AAAAAA';
+        case 'демонтирован': return '#555555';
+        default: return '#FFFFFF';
+      }
+    }
+
+    function getReklamaColor(reklama) {
+      switch (reklama) {
+        case 'LED': return '#FF0000';
+        case 'Lightbox': return '#0000FF';
+        case 'X': return '#00FF00';
+        default: return '#000000';
+      }
+    }
 
     function togglePanel(title, content, buttonId) {
       const panel = document.getElementById('bottomPanel');
@@ -214,8 +262,8 @@
     function filterMarkers(status = 'all', reklama = 'all') {
       markers.forEach(marker => {
         map.removeLayer(marker);
-        let statusMatch = status === 'all' || status.split(',').some(s => marker.status.includes(s));
-        let reklamaMatch = reklama === 'all' || reklama.split(',').includes(marker.reklama);
+        let statusMatch = status === 'all' || (status && status.split(',').some(s => marker.status.includes(s)));
+        let reklamaMatch = reklama === 'all' || (reklama && reklama.split(',').some(r => marker.reklama.includes(r)));
 
         if (statusMatch && reklamaMatch) {
           marker.addTo(map);
