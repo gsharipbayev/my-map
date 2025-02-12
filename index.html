@@ -127,7 +127,8 @@
           if (isNaN(lat) || isNaN(lng)) return;
 
           var statusRaw = (item.status || '').trim();
-          var reklama = (item.reklama || '').trim();
+          var reklamaRaw = (item.reklama || '').trim();
+          var reklama = reklamaRaw === '' || reklamaRaw.toLowerCase() === 'none' ? 'X' : reklamaRaw;
 
           var markerIcon = createCustomIcon(statusRaw, reklama);
           var marker = L.marker([lat, lng], { icon: markerIcon });
@@ -135,7 +136,7 @@
           var popupHtml = `<b>Название остановки:</b> ${item.stopName || ''}<br>
                            <b>Улица:</b> ${item.street || ''}<br>
                            <b>Статус:</b> ${item.status || ''}<br>
-                           <b>Реклама:</b> ${item.reklama || ''}`;
+                           <b>Реклама:</b> ${reklama}`;
 
           marker.bindPopup(popupHtml);
           marker.status = statusRaw.toLowerCase();
