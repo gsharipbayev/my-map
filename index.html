@@ -42,6 +42,12 @@
     .btn:hover {
       background-color: #0056b3;
     }
+    .btn span {
+      display: block;
+      font-size: 12px;
+      color: #D1E8FF;
+      margin-top: 5px;
+    }
 
     .overlay {
       position: fixed;
@@ -122,9 +128,9 @@
 
   <div class="control-buttons">
     <button class="btn" id="legendToggle">Легенда</button>
-    <button class="btn" id="statusToggle">Состояние</button>
-    <button class="btn" id="reklamaToggle">Реклама</button>
-    <button class="btn" id="combinedToggle">Общее</button>
+    <button class="btn" id="statusToggle">Состояние <span id="statusLabel"></span></button>
+    <button class="btn" id="reklamaToggle">Реклама <span id="reklamaLabel"></span></button>
+    <button class="btn" id="combinedToggle">Общее <span id="combinedLabel"></span></button>
   </div>
 
   <div class="overlay" id="overlay"></div>
@@ -146,10 +152,8 @@
     var currentPanel = null;
     var markers = [];
 
-    // URL для Google Apps Script
     var sheetUrl = 'https://script.google.com/macros/s/AKfycbw02IfURjZsCIZsckiRYKt_kawJ4OlazkNILhw4cGwSj-9cdAXzbP6AtNWWr3zNFnky/exec';
 
-    // Загрузка данных из Google Sheets
     fetch(sheetUrl)
       .then(response => response.json())
       .then(data => {
@@ -216,24 +220,20 @@
       });
     }
 
-    document.getElementById('legendToggle').addEventListener('click', () => {
-      togglePanel('Легенда', `
-        <div class="legend-row"><span class="legend-icon" style="background-color: #00FF00;"></span>Работает</div>
-        <div class="legend-row"><span class="legend-icon" style="background-color: #FF0000;"></span>Не работает</div>
-        <div class="legend-row"><span class="legend-icon" style="background-color: #AAAAAA;"></span>Снят</div>
-        <div class="legend-row"><span class="legend-icon" style="background-color: #555555;"></span>Демонтирован</div>
-        <div class="legend-row"><span class="legend-border-icon" style="border-color: #FF0000;"></span>LED</div>
-        <div class="legend-row"><span class="legend-border-icon" style="border-color: #0000FF;"></span>Lightbox</div>
-        <div class="legend-row"><span class="legend-border-icon" style="border-color: #00FF00;"></span>(X) Нет</div>
-      `, 'legendToggle');
-    });
+    function applyFilterAndClosePanel(labelId, value, filterFunc) {
+      document.getElementById(labelId).innerText = value;
+      filterMarkers(...filterFunc);
+      document.getElementById('bottomPanel').classList.remove('active');
+      document.getElementById('overlay').style.display = 'none';
+      currentPanel = null;
+    }
 
     document.getElementById('statusToggle').addEventListener('click', () => {
       togglePanel('Состояние', `
         <div class="filter-buttons">
-          <button onclick="filterMarkers('all')">Все</button>
-          <button onclick="filterMarkers('работает')">Рабочие</button>
-          <button onclick="filterMarkers('не работает,снят,демонтирован')">Не рабочие/Снятые/Демонтированные</button>
+          <button onclick="applyFilterAndClosePanel('statusLabel', 'Все', ['all', null])">Все</button>
+          <button onclick="applyFilterAndClosePanel('statusLabel', 'Рабочие', ['работает', null])">Рабочие</button>
+          <button onclick="applyFilterAndClosePanel('statusLabel', 'Не рабочие', ['не работает,снят,демонтирован', null])">Не рабочие/Снятые/Демонтированные</button>
         </div>
       `, 'statusToggle');
     });
@@ -241,10 +241,10 @@
     document.getElementById('reklamaToggle').addEventListener('click', () => {
       togglePanel('Реклама', `
         <div class="filter-buttons">
-          <button onclick="filterMarkers(null, 'all')">Все</button>
-          <button onclick="filterMarkers(null, 'LED')">LED</button>
-          <button onclick="filterMarkers(null, 'Lightbox')">Lightbox</button>
-          <button onclick="filterMarkers(null, 'X')">(X) Нет</button>
+          <button onclick="applyFilterAndClosePanel('reklamaLabel', 'Все', [null, 'all'])">Все</button>
+          <button onclick="applyFilterAndClosePanel('reklamaLabel', 'LED', [null, 'LED'])">LED</button>
+          <button onclick="applyFilterAndClosePanel('reklamaLabel', 'Lightbox', [null, 'Lightbox'])">Lightbox</button>
+          <button onclick="applyFilterAndClosePanel('reklamaLabel', '(X) Нет', [null, 'X'])">(X) Нет</button>
         </div>
       `, 'reklamaToggle');
     });
@@ -252,9 +252,9 @@
     document.getElementById('combinedToggle').addEventListener('click', () => {
       togglePanel('Общее', `
         <div class="filter-buttons">
-          <button onclick="filterMarkers('all', 'all')">Все</button>
-          <button onclick="filterMarkers('работает', 'LED,Lightbox')">Работает с LED/Lightbox</button>
-          <button onclick="filterMarkers('не работает,снят,демонтирован', 'X')">Не работает/Снят/Демонтирован с (X)</button>
+          <button onclick="applyFilterAndClosePanel('combinedLabel', 'Все', ['all', 'all'])">Все</button>
+          <button onclick="applyFilterAndClosePanel('combinedLabel', 'Работает с LED/Lightbox', ['работает', 'LED,Lightbox'])">Работает с LED/Lightbox</button>
+          <button onclick="applyFilterAndClosePanel('combinedLabel', 'Не работает с (X)', ['не работает,снят,демонтирован', 'X'])">Не работает/Снят/Демонтирован с (X)</button>
         </div>
       `, 'combinedToggle');
     });
