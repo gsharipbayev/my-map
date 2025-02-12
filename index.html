@@ -8,7 +8,6 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"/>
 
   <style>
-    /* Карта на весь экран */
     html, body {
       margin: 0;
       padding: 0;
@@ -19,92 +18,91 @@
       height: 100%;
     }
 
-    /* Панель фильтров */
-    .filter-panel {
-      position: absolute;
-      top: 20px;
-      right: 20px;
-      z-index: 9999;
-      background-color: #fff;
-      padding: 15px;
-      border: 2px solid #666;
-      border-radius: 5px;
-      font-family: sans-serif;
-      font-size: 14px;
-    }
-
-    /* Легенда */
-    .legend {
+    /* Кнопки */
+    .control-buttons {
       position: absolute;
       bottom: 20px;
-      left: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 10px;
       z-index: 9999;
-      background-color: #fff;
-      padding: 10px;
-      border: 2px solid #666;
+    }
+    .btn {
+      padding: 10px 20px;
+      background-color: #007BFF;
+      color: white;
+      border: none;
       border-radius: 5px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    .btn:hover {
+      background-color: #0056b3;
+    }
+
+    /* Легенда и Фильтры */
+    .bottom-panel {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 30%;
+      background-color: rgba(255, 255, 255, 0.95);
+      border-top: 2px solid #666;
+      border-radius: 10px 10px 0 0;
       font-family: sans-serif;
       font-size: 14px;
+      display: none;
+      padding: 15px;
+      box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.3);
+      overflow-y: auto;
     }
-
-    .legend div {
-      margin-bottom: 5px;
+    .panel-title {
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 10px;
     }
-
-    .legend-icon {
+    .panel-subtitle {
+      font-size: 14px;
+      font-weight: normal;
+      color: #666;
+      margin-bottom: 15px;
+    }
+    .legend-icon, .legend-border-icon {
       display: inline-block;
-      width: 12px;
-      height: 12px;
-      margin-right: 5px;
-      border-radius: 2px;
+      width: 16px;
+      height: 16px;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+    .legend-icon {
+      border-radius: 50%;
+    }
+    .legend-border-icon {
+      border: 4px solid;
+      border-radius: 0;
     }
   </style>
 </head>
 <body>
   <div id="map"></div>
-  
-  <!-- Панель фильтров -->
-  <div class="filter-panel">
-    <div>
-      <label for="statusFilter">Статус:</label>
-      <select id="statusFilter">
-        <option value="all">Все</option>
-        <option value="working">Рабочие</option>
-        <option value="notWorking">Не работающие, снятые и демонтированные</option>
-      </select>
-    </div>
-    <div>
-      <label for="reklamaFilter">Реклама:</label>
-      <select id="reklamaFilter">
-        <option value="all">Все</option>
-        <option value="LED">LED</option>
-        <option value="Lightbox">Lightbox</option>
-        <option value="X">(X) None</option>
-      </select>
-    </div>
-    <div>
-      <label for="combinedFilter">Общий:</label>
-      <select id="combinedFilter">
-        <option value="all">Все</option>
-        <option value="workingAd">Реклама LED/Lightbox и Статус работает</option>
-        <option value="notWorkingNoAd">Реклама (X) None и Статус не работает, снят и демонтирован</option>
-      </select>
-    </div>
+
+  <div class="control-buttons">
+    <button class="btn" id="legendToggle">Легенда</button>
+    <button class="btn" id="statusToggle">Статус</button>
+    <button class="btn" id="reklamaToggle">Реклама</button>
+    <button class="btn" id="combinedToggle">Общие</button>
   </div>
 
-  <!-- Легенда -->
-  <div class="legend">
-    <div><span class="legend-icon" style="background-color: #00FF00;"></span>Работает</div>
-    <div><span class="legend-icon" style="background-color: #FF0000;"></span>Не работает</div>
-    <div><span class="legend-icon" style="background-color: #AAAAAA;"></span>Снят</div>
-    <div><span class="legend-icon" style="background-color: #555555;"></span>Демонтирован</div>
-    <hr>
-    <div><span class="legend-icon" style="background-color: #FF0000; border: 2px solid #FFFFFF;"></span>LED</div>
-    <div><span class="legend-icon" style="background-color: #0000FF; border: 2px solid #FFFFFF;"></span>Lightbox</div>
-    <div><span class="legend-icon" style="background-color: #00FF00; border: 2px solid #000000;"></span>(X) None</div>
+  <!-- Панель внизу -->
+  <div class="bottom-panel" id="bottomPanel">
+    <div class="panel-title" id="panelTitle"></div>
+    <div class="panel-subtitle" id="panelSubtitle"></div>
+    <div id="panelContent"></div>
   </div>
 
-  <!-- Подключаем Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
 
   <script>
@@ -146,29 +144,48 @@
           marker.addTo(map);
         });
 
-        document.getElementById('statusFilter').addEventListener('change', applyFilters);
-        document.getElementById('reklamaFilter').addEventListener('change', applyFilters);
-        document.getElementById('combinedFilter').addEventListener('change', applyFilters);
+        document.getElementById('statusToggle').addEventListener('click', () => showPanel('Статус', 'Рабочие', 'status'));
+        document.getElementById('reklamaToggle').addEventListener('click', () => showPanel('Реклама', 'LED и Lightbox', 'reklama'));
+        document.getElementById('combinedToggle').addEventListener('click', () => showPanel('Общие', 'LED/Lightbox и работает', 'combined'));
       })
       .catch(err => console.error("Ошибка при загрузке JSON:", err));
 
-    function applyFilters() {
-      var statusFilter = document.getElementById('statusFilter').value;
-      var reklamaFilter = document.getElementById('reklamaFilter').value;
-      var combinedFilter = document.getElementById('combinedFilter').value;
+    document.getElementById('legendToggle').addEventListener('click', () => {
+      showPanel('Легенда', '', 'legend');
+    });
 
+    function showPanel(title, subtitle, type) {
+      var panel = document.getElementById('bottomPanel');
+      document.getElementById('panelTitle').innerText = title;
+      document.getElementById('panelSubtitle').innerText = subtitle;
+
+      if (type === 'legend') {
+        document.getElementById('panelContent').innerHTML = `
+          <div><strong>Статус:</strong></div>
+          <div><span class="legend-icon" style="background-color: #00FF00;"></span>Работает</div>
+          <div><span class="legend-icon" style="background-color: #FF0000;"></span>Не работает</div>
+          <div><span class="legend-icon" style="background-color: #AAAAAA;"></span>Снят</div>
+          <div><span class="legend-icon" style="background-color: #555555;"></span>Демонтирован</div>
+          <br>
+          <div><strong>Вид Рекламы:</strong></div>
+          <div><span class="legend-border-icon" style="border-color: #FF0000; background-color: #FFFFFF;"></span>LED</div>
+          <div><span class="legend-border-icon" style="border-color: #0000FF; background-color: #FFFFFF;"></span>Lightbox</div>
+          <div><span class="legend-border-icon" style="border-color: #00FF00; background-color: #000000;"></span>(X) None</div>
+        `;
+      } else {
+        filterMarkers(type);
+      }
+
+      panel.style.display = 'block';
+    }
+
+    function filterMarkers(type) {
       markers.forEach(marker => {
         map.removeLayer(marker);
 
-        var statusMatch = (statusFilter === 'all') ||
-                          (statusFilter === 'working' && marker.status.includes('работает')) ||
-                          (statusFilter === 'notWorking' && (marker.status.includes('не работает') || marker.status.includes('снят') || marker.status.includes('демонт')));
-
-        var reklamaMatch = (reklamaFilter === 'all') || (marker.reklama === reklamaFilter);
-
-        var combinedMatch = (combinedFilter === 'all') ||
-                            (combinedFilter === 'workingAd' && (marker.reklama === 'LED' || marker.reklama === 'Lightbox') && marker.status.includes('работает')) ||
-                            (combinedFilter === 'notWorkingNoAd' && marker.reklama === 'X' && (marker.status.includes('не работает') || marker.status.includes('снят') || marker.status.includes('демонт')));
+        var statusMatch = type !== 'status' || marker.status.includes('работает');
+        var reklamaMatch = type !== 'reklama' || (marker.reklama === 'LED' || marker.reklama === 'Lightbox');
+        var combinedMatch = type !== 'combined' || (marker.reklama === 'LED' && marker.status.includes('работает'));
 
         if (statusMatch && reklamaMatch && combinedMatch) {
           marker.addTo(map);
