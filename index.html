@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <title>Leaflet Map (Sheets + Apps Script)</title>
-  
+
   <!-- Подключаем Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"/>
 
@@ -19,252 +19,200 @@
       height: 100%;
     }
 
-    /* Кнопка переключения слоёв */
-    .toggle-btn {
+    /* Панель фильтров */
+    .filter-panel {
       position: absolute;
-      bottom: 20px;
+      top: 20px;
       right: 20px;
-      z-index: 9999; /* чтобы не перекрывалась картой */
-      padding: 10px 15px;
+      z-index: 9999;
       background-color: #fff;
+      padding: 15px;
       border: 2px solid #666;
       border-radius: 5px;
-      cursor: pointer;
       font-family: sans-serif;
       font-size: 14px;
     }
-    .toggle-btn:hover {
-      background-color: #f0f0f0;
+
+    /* Легенда */
+    .legend {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      z-index: 9999;
+      background-color: #fff;
+      padding: 10px;
+      border: 2px solid #666;
+      border-radius: 5px;
+      font-family: sans-serif;
+      font-size: 14px;
+    }
+
+    .legend div {
+      margin-bottom: 5px;
+    }
+
+    .legend-icon {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      margin-right: 5px;
+      border-radius: 2px;
     }
   </style>
 </head>
 <body>
   <div id="map"></div>
-  <div class="toggle-btn" id="toggleBtn">Показать НЕ_работает</div>
+  
+  <!-- Панель фильтров -->
+  <div class="filter-panel">
+    <div>
+      <label for="statusFilter">Статус:</label>
+      <select id="statusFilter">
+        <option value="all">Все</option>
+        <option value="working">Рабочие</option>
+        <option value="notWorking">Не работающие, снятые и демонтированные</option>
+      </select>
+    </div>
+    <div>
+      <label for="reklamaFilter">Реклама:</label>
+      <select id="reklamaFilter">
+        <option value="all">Все</option>
+        <option value="LED">LED</option>
+        <option value="Lightbox">Lightbox</option>
+        <option value="X">(X) None</option>
+      </select>
+    </div>
+    <div>
+      <label for="combinedFilter">Общий:</label>
+      <select id="combinedFilter">
+        <option value="all">Все</option>
+        <option value="workingAd">Реклама LED/Lightbox и Статус работает</option>
+        <option value="notWorkingNoAd">Реклама (X) None и Статус не работает, снят и демонтирован</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Легенда -->
+  <div class="legend">
+    <div><span class="legend-icon" style="background-color: #00FF00;"></span>Работает</div>
+    <div><span class="legend-icon" style="background-color: #FF0000;"></span>Не работает</div>
+    <div><span class="legend-icon" style="background-color: #AAAAAA;"></span>Снят</div>
+    <div><span class="legend-icon" style="background-color: #555555;"></span>Демонтирован</div>
+    <hr>
+    <div><span class="legend-icon" style="background-color: #FF0000; border: 2px solid #FFFFFF;"></span>LED</div>
+    <div><span class="legend-icon" style="background-color: #0000FF; border: 2px solid #FFFFFF;"></span>Lightbox</div>
+    <div><span class="legend-icon" style="background-color: #00FF00; border: 2px solid #000000;"></span>(X) None</div>
+  </div>
 
   <!-- Подключаем Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
 
   <script>
-    // 1) Инициализируем карту
     var map = L.map('map').setView([51.09, 71.45], 11);
 
-    // 2) Подключаем тайлы (OpenStreetMap)
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19
     }).addTo(map);
 
-    // 3) ВАША ссылка на задеплоенный скрипт
     var url = "https://script.google.com/macros/s/AKfycbw02IfURjZsCIZsckiRYKt_kawJ4OlazkNILhw4cGwSj-9cdAXzbP6AtNWWr3zNFnky/exec";
 
-    /* -------------------------------------------------------------------
-       ФУНКЦИИ ДЛЯ ОПРЕДЕЛЕНИЯ ЦВЕТОВ
-       ------------------------------------------------------------------- */
+    var markers = [];
 
-    // Цвет заливки по статусу (столбец M):
-    // "работает" => #00FF00 (ярко-зеленый)
-    // "не работает" => #FF0000 (красный)
-    // "снят" => #AAAAAA (ярко-серый)
-    // "демонтирован" => #555555 (темно-серый)
-    function getStatusFill(status) {
-      var st = status.toLowerCase();
-      if (st.includes('работает')) {
-        return '#00FF00';
-      } else if (st.includes('не работает')) {
-        return '#FF0000';
-      } else if (st.includes('снят')) {
-        return '#AAAAAA';
-      } else if (st.includes('демонт')) {
-        return '#555555';
-      }
-      // по умолчанию
-      return '#FFFFFF';
+    fetch(url)
+      .then(response => response.json())
+      .then(data => {
+        data.forEach(item => {
+          var lat = parseFloat(item.lat);
+          var lng = parseFloat(item.lng);
+          if (isNaN(lat) || isNaN(lng)) return;
+
+          var statusRaw = (item.status || '').trim();
+          var reklama = (item.reklama || '').trim();
+
+          var markerIcon = createCustomIcon(statusRaw, reklama);
+          var marker = L.marker([lat, lng], { icon: markerIcon });
+
+          var popupHtml = `<b>Название остановки:</b> ${item.stopName || ''}<br>
+                           <b>Улица:</b> ${item.street || ''}<br>
+                           <b>Статус:</b> ${item.status || ''}<br>
+                           <b>Реклама:</b> ${item.reklama || ''}`;
+
+          marker.bindPopup(popupHtml);
+          marker.status = statusRaw.toLowerCase();
+          marker.reklama = reklama;
+
+          markers.push(marker);
+          marker.addTo(map);
+        });
+
+        document.getElementById('statusFilter').addEventListener('change', applyFilters);
+        document.getElementById('reklamaFilter').addEventListener('change', applyFilters);
+        document.getElementById('combinedFilter').addEventListener('change', applyFilters);
+      })
+      .catch(err => console.error("Ошибка при загрузке JSON:", err));
+
+    function applyFilters() {
+      var statusFilter = document.getElementById('statusFilter').value;
+      var reklamaFilter = document.getElementById('reklamaFilter').value;
+      var combinedFilter = document.getElementById('combinedFilter').value;
+
+      markers.forEach(marker => {
+        map.removeLayer(marker);
+
+        var statusMatch = (statusFilter === 'all') ||
+                          (statusFilter === 'working' && marker.status.includes('работает')) ||
+                          (statusFilter === 'notWorking' && (marker.status.includes('не работает') || marker.status.includes('снят') || marker.status.includes('демонт')));
+
+        var reklamaMatch = (reklamaFilter === 'all') || (marker.reklama === reklamaFilter);
+
+        var combinedMatch = (combinedFilter === 'all') ||
+                            (combinedFilter === 'workingAd' && (marker.reklama === 'LED' || marker.reklama === 'Lightbox') && marker.status.includes('работает')) ||
+                            (combinedFilter === 'notWorkingNoAd' && marker.reklama === 'X' && (marker.status.includes('не работает') || marker.status.includes('снят') || marker.status.includes('демонт')));
+
+        if (statusMatch && reklamaMatch && combinedMatch) {
+          marker.addTo(map);
+        }
+      });
     }
 
-    // Цвет обводки для "рабочего" (по рекламе, столбец R)
-    // LED => жирная красная обводка (#FF0000) + белая тонкая (#FFFFFF)
-    // Lightbox => жирная синяя (#0000FF) + белая тонкая (#FFFFFF)
-    // None => жирная зеленая (#00FF00) + черная тонкая (#000000)
-    // Иначе по умолчанию => (outer:#000000, inner:#FFFFFF)
-    function getReklamaBorder(reklama) {
-      switch (reklama) {
-        case 'LED':
-          return { outer: '#FF0000', inner: '#FFFFFF' };
-        case 'Lightbox':
-          return { outer: '#0000FF', inner: '#FFFFFF' };
-        case 'X':
-          return { outer: '#00FF00', inner: '#000000' };
-        default:
-          return { outer: '#000000', inner: '#FFFFFF' };
-      }
-    }
-
-    // Цвет обводки для "нерабочего" (по питанию, столбец S)
-    // если "да" => жирная ярко-зелёная (#00FF00) + белая тонкая (#FFFFFF)
-    // если "нет" => жирная ярко-красная (#FF0000) + белая тонкая (#FFFFFF)
-    // иначе по умолчанию => (outer:#000000, inner:#FFFFFF)
-    function getPowerBorder(powerValue) {
-      var val = powerValue.toLowerCase().trim();
-      if (val === 'да') {
-        return { outer: '#00FF00', inner: '#FFFFFF' };
-      } else if (val === 'нет') {
-        return { outer: '#FF0000', inner: '#FFFFFF' };
-      } else {
-        return { outer: '#000000', inner: '#FFFFFF' };
-      }
-    }
-
-    /* -------------------------------------------------------------------
-       СОЗДАНИЕ КАСТОМНОГО ICON
-       ------------------------------------------------------------------- */
-
-    // Единственная точка входа для создания иконок
-    // - status (для заливки)
-    // - reklama (для рабочей обводки)
-    // - power (для нерабочей обводки)
-    // - isTablo (true => круг, false => квадрат)
-    // - isWorking (true => рекламная обводка, false => обводка по питанию)
-    function createCustomIcon(status, reklama, power, isTablo, isWorking) {
-      // fillColor => статус
+    function createCustomIcon(status, reklama) {
       var fillColor = getStatusFill(status);
+      var borderColors = getReklamaBorder(reklama);
 
-      // borderColors => реклама (если isWorking), питание (если неWorking)
-      var borderColors = isWorking
-        ? getReklamaBorder(reklama)
-        : getPowerBorder(power);
-
-      var shape = isTablo ? '50%' : '0'; // круг/квадрат
-
-      // Составим inline-стиль:
-      //  - ширина/высота 16px
-      //  - background-color = fillColor
-      //  - 4px solid border = outer
-      //  - тонкая внутренняя граница (1px) => box-shadow: inset 0 0 0 1px inner
-      //  - border-radius = shape (50% => круг)
       var style = [
         'width:16px',
         'height:16px',
-        'border-radius:' + shape,
+        'border-radius:50%',
         'background-color:' + fillColor,
         'border:4px solid ' + borderColors.outer,
         'box-shadow: inset 0 0 0 1px ' + borderColors.inner
       ].join(';');
 
-      var html = '<div style="' + style + '"></div>';
-
       return L.divIcon({
-        html: html,
+        html: '<div style="' + style + '"></div>',
         iconSize: [24, 24],
         iconAnchor: [12, 12],
         className: ''
       });
     }
 
-    /* -------------------------------------------------------------------
-       СЛОИ (ГРУППЫ МАРКЕРОВ) + КНОПКА ПЕРЕКЛЮЧЕНИЯ
-       ------------------------------------------------------------------- */
-    var workingGroup = L.layerGroup();    // для "работает"
-    var notWorkingGroup = L.layerGroup(); // для "не работает", "снят табло", "демонтирован"
-
-    var showWorking = true; // по умолчанию включаем рабочие
-
-    function toggleLayers() {
-      if (showWorking) {
-        map.removeLayer(workingGroup);
-        map.addLayer(notWorkingGroup);
-        document.getElementById("toggleBtn").textContent = "Показать РАБОТАЕТ";
-        showWorking = false;
-      } else {
-        map.removeLayer(notWorkingGroup);
-        map.addLayer(workingGroup);
-        document.getElementById("toggleBtn").textContent = "Показать НЕ_работает";
-        showWorking = true;
-      }
+    function getStatusFill(status) {
+      var st = status.toLowerCase();
+      if (st.includes('работает')) return '#00FF00';
+      else if (st.includes('не работает')) return '#FF0000';
+      else if (st.includes('снят')) return '#AAAAAA';
+      else if (st.includes('демонт')) return '#555555';
+      return '#FFFFFF';
     }
 
-    document.getElementById('toggleBtn').addEventListener('click', toggleLayers);
-
-    /* -------------------------------------------------------------------
-       ЗАГРУЗКА ДАННЫХ
-       ------------------------------------------------------------------- */
-    fetch(url)
-      .then(function(response){
-        return response.json();
-      })
-      .then(function(data){
-        console.log("Данные:", data);
-
-        data.forEach(function(item){
-          var lat = parseFloat(item.lat);
-          var lng = parseFloat(item.lng);
-          if (isNaN(lat) || isNaN(lng)) {
-            return; // пропускаем некорректные координаты
-          }
-
-          var statusRaw = (item.status || '').trim();
-          var stLower = statusRaw.toLowerCase();
-
-          // Разделяем на рабочую/нерабочую группу
-          var isWorking = stLower.includes('работает');
-          var isNotWorking = (
-            stLower.includes('не работает') ||
-            stLower.includes('снят') ||
-            stLower.includes('демонт')
-          );
-
-          // если статус не подходит ни туда, ни сюда, пропустим
-          if (!isWorking && !isNotWorking) {
-            console.log('Неизвестный статус', statusRaw);
-            return;
-          }
-
-          // тип (M) => "Табло" / "Медиаборд"
-          var typeMRaw = (item.tablo || '').toLowerCase();
-          var isTablo = typeMRaw.includes('табло'); // иначе медиаборд
-
-          // рекламу берём из item.reklama
-          var reklama = (item.reklama || '').trim();
-          // питание (S)
-          var power = (item.power || '').trim(); // "да" / "нет" / etc.
-
-          // Создаём кастомный маркер
-          var markerIcon = createCustomIcon(
-            statusRaw,       // для заливки
-            reklama,         // для рабочей обводки
-            power,           // для нерабочей обводки
-            isTablo,         // форма
-            isWorking        // выбор обводки
-          );
-
-          var marker = L.marker([lat, lng], { icon: markerIcon });
-
-          // popup
-          var popupHtml =
-            '<b>Название остановки:</b> ' + (item.stopName || '') + '<br>' +
-            '<b>Улица:</b> ' + (item.street || '') + '<br>' +
-            '<b>Направление:</b> ' + (item.direction || '') + '<br>' +
-            '<b>Район:</b> ' + (item.region || '') + '<br>' +
-            '<b>ID Остановки:</b> ' + (item.stopId || '') + '<br>' +
-            '<b>Статус:</b> ' + (item.status || '') + '<br>' +
-            '<b>Реклама:</b> ' + (item.reklama || '') + '<br>' +
-            '<b>Питание (S):</b> ' + (item.power || '');
-
-          marker.bindPopup(popupHtml);
-
-          // Добавляем в нужную группу
-          if (isWorking) {
-            workingGroup.addLayer(marker);
-          } else {
-            notWorkingGroup.addLayer(marker);
-          }
-        });
-
-        // по умолчанию показываем "рабочие"
-        workingGroup.addTo(map);
-      })
-      .catch(function(err){
-        console.error("Ошибка при загрузке JSON:", err);
-      });
+    function getReklamaBorder(reklama) {
+      switch (reklama) {
+        case 'LED': return { outer: '#FF0000', inner: '#FFFFFF' };
+        case 'Lightbox': return { outer: '#0000FF', inner: '#FFFFFF' };
+        case 'X': return { outer: '#00FF00', inner: '#000000' };
+        default: return { outer: '#000000', inner: '#FFFFFF' };
+      }
+    }
   </script>
 </body>
 </html>
