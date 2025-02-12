@@ -128,9 +128,9 @@
 
   <div class="control-buttons">
     <button class="btn" id="legendToggle">Легенда</button>
-    <button class="btn" id="statusToggle">Состояние <span id="statusLabel"></span></button>
-    <button class="btn" id="reklamaToggle">Реклама <span id="reklamaLabel"></span></button>
-    <button class="btn" id="combinedToggle">Общее <span id="combinedLabel"></span></button>
+    <button class="btn" id="statusToggle">Состояние <span id="statusLabel">Все</span></button>
+    <button class="btn" id="reklamaToggle">Реклама <span id="reklamaLabel">Все</span></button>
+    <button class="btn" id="combinedToggle">Общее <span id="combinedLabel">Все</span></button>
   </div>
 
   <div class="overlay" id="overlay"></div>
@@ -231,9 +231,9 @@
     document.getElementById('statusToggle').addEventListener('click', () => {
       togglePanel('Состояние', `
         <div class="filter-buttons">
-          <button onclick="applyFilterAndClosePanel('statusLabel', 'Все', ['all', null])">Все</button>
-          <button onclick="applyFilterAndClosePanel('statusLabel', 'Рабочие', ['работает', null])">Рабочие</button>
-          <button onclick="applyFilterAndClosePanel('statusLabel', 'Не рабочие', ['не работает,снят,демонтирован', null])">Не рабочие/Снятые/Демонтированные</button>
+          <button onclick="applyFilterAndClosePanel('statusLabel', 'Все', ['all', 'all'])">Все</button>
+          <button onclick="applyFilterAndClosePanel('statusLabel', 'Рабочие', ['работает', 'all'])">Рабочие</button>
+          <button onclick="applyFilterAndClosePanel('statusLabel', 'Не рабочие', ['не работает,снят,демонтирован', 'all'])">Не рабочие/Снятые/Демонтированные</button>
         </div>
       `, 'statusToggle');
     });
@@ -241,10 +241,10 @@
     document.getElementById('reklamaToggle').addEventListener('click', () => {
       togglePanel('Реклама', `
         <div class="filter-buttons">
-          <button onclick="applyFilterAndClosePanel('reklamaLabel', 'Все', [null, 'all'])">Все</button>
-          <button onclick="applyFilterAndClosePanel('reklamaLabel', 'LED', [null, 'LED'])">LED</button>
-          <button onclick="applyFilterAndClosePanel('reklamaLabel', 'Lightbox', [null, 'Lightbox'])">Lightbox</button>
-          <button onclick="applyFilterAndClosePanel('reklamaLabel', '(X) Нет', [null, 'X'])">(X) Нет</button>
+          <button onclick="applyFilterAndClosePanel('reklamaLabel', 'Все', ['all', 'all'])">Все</button>
+          <button onclick="applyFilterAndClosePanel('reklamaLabel', 'LED', ['all', 'LED'])">LED</button>
+          <button onclick="applyFilterAndClosePanel('reklamaLabel', 'Lightbox', ['all', 'Lightbox'])">Lightbox</button>
+          <button onclick="applyFilterAndClosePanel('reklamaLabel', '(X) Нет', ['all', 'X'])">(X) Нет</button>
         </div>
       `, 'reklamaToggle');
     });
