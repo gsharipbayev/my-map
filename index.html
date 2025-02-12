@@ -114,7 +114,7 @@
       border-radius: 50%;
     }
     .legend-border-icon {
-      border: 4px solid;
+      border: 6px solid;
       background-color: #FFFFFF;
       box-shadow: inset 0 0 0 1px black;
     }
@@ -148,8 +148,8 @@
 
   <div class="control-buttons">
     <button class="btn" id="legendToggle">Легенда</button>
-    <button class="btn" id="statusToggle">Состояние <span id="statusLabel">Все</span></button>
-    <button class="btn" id="reklamaToggle">Реклама <span id="reklamaLabel">Все</span></button>
+    <button class="btn" id="statusToggle">Состояние <span id="statusLabel">Все (205)</span></button>
+    <button class="btn" id="reklamaToggle">Реклама <span id="reklamaLabel">Все (205)</span></button>
     <button class="btn" id="searchToggle">Поиск по ID Табло</button>
   </div>
 
@@ -185,7 +185,7 @@
       data.forEach(marker => {
         const icon = L.divIcon({
           className: 'custom-icon',
-          html: `<div style="background-color: ${getStatusColor(marker.status)}; border: 3px solid ${getReklamaColor(marker.reklama)}; width: 20px; height: 20px; border-radius: 50%;"></div>`
+          html: `<div style="background-color: ${getStatusColor(marker.status)}; border: 6px solid ${getReklamaColor(marker.reklama)}; width: 20px; height: 20px; border-radius: 50%;"></div>`
         });
         const mapMarker = L.marker([marker.lat, marker.lng], { icon: icon }).addTo(map);
         markers.push(mapMarker);
@@ -202,6 +202,7 @@
         case 'работает': return '#00FF00';
         case 'не работает': return '#FF0000';
         case 'снят': return '#AAAAAA';
+        case 'снят табло': return '#D3D3D3';
         case 'демонтирован': return '#555555';
         default: return '#FFFFFF';
       }
@@ -216,81 +217,17 @@
       }
     }
 
-    document.getElementById('statusToggle').addEventListener('click', () => {
-      togglePanel('Состояние', `
-        <div class="filter-buttons">
-          <button onclick="filterStatus('все')">Все</button>
-          <button onclick="filterStatus('работает')">Работает</button>
-          <button onclick="filterStatus('не работает')">Не работает</button>
-          <button onclick="filterStatus('снят')">Снят</button>
-          <button onclick="filterStatus('демонтирован')">Демонтирован</button>
-        </div>
-      `, 'statusToggle');
-    });
-
-    function filterStatus(status) {
-      if (status === 'все') {
-        addMarkers(markersData);
-      } else {
-        const filtered = markersData.filter(marker => marker.status.toLowerCase() === status);
-        addMarkers(filtered);
-      }
-      closePanel();
-      document.getElementById('statusLabel').innerText = status.charAt(0).toUpperCase() + status.slice(1);
-    }
-
-    document.getElementById('reklamaToggle').addEventListener('click', () => {
-      togglePanel('Реклама', `
-        <div class="filter-buttons">
-          <button onclick="filterReklama('все')">Все</button>
-          <button onclick="filterReklama('led')">LED</button>
-          <button onclick="filterReklama('lightbox')">Lightbox</button>
-          <button onclick="filterReklama('(x) нет')">(X) Нет</button>
-        </div>
-      `, 'reklamaToggle');
-    });
-
-    function filterReklama(reklama) {
-      if (reklama === 'все') {
-        addMarkers(markersData);
-      } else {
-        const filtered = markersData.filter(marker => marker.reklama.toLowerCase() === reklama);
-        addMarkers(filtered);
-      }
-      closePanel();
-      document.getElementById('reklamaLabel').innerText = reklama.charAt(0).toUpperCase() + reklama.slice(1);
-    }
-
-    document.getElementById('searchToggle').addEventListener('click', () => {
-      togglePanel('Поиск по ID Табло', `
-        <input type="text" class="search-input" id="searchInput" placeholder="Введите ID Табло" oninput="searchById()">
-      `, 'searchToggle');
-    });
-
-    function searchById() {
-      const query = document.getElementById('searchInput').value.trim().toLowerCase();
-      if (!query) {
-        addMarkers(markersData);
-        return;
-      }
-      const filtered = markersData.filter(marker => (marker.id || '').toLowerCase().includes(query));
-      addMarkers(filtered);
-    }
-
-    let currentPanel = null;
-
     function togglePanel(title, content, buttonId) {
       const panel = document.getElementById('bottomPanel');
       const overlay = document.getElementById('overlay');
 
-      if (currentPanel === buttonId && panel.classList.contains('active')) {
+      if (panel.classList.contains('active') && document.getElementById('panelTitle').innerText === title) {
         closePanel();
       } else {
         document.getElementById('panelTitle').innerText = title;
         document.getElementById('panelContent').innerHTML = content;
         panel.classList.add('active');
         overlay.style.display = 'block';
-        currentPanel = buttonId;
       }
 
       overlay.addEventListener('click', closePanel);
@@ -301,26 +238,61 @@
       const overlay = document.getElementById('overlay');
       panel.classList.remove('active');
       overlay.style.display = 'none';
-      currentPanel = null;
     }
 
-    document.getElementById('legendToggle').addEventListener('click', () => togglePanel('Легенда', `
-      <div class="legend-section">
-        <div class="legend-title">Статус:</div>
-        <div class="legend-row"><span class="legend-icon" style="background-color: #00FF00;"></span>Работает</div>
-        <div class="legend-row"><span class="legend-icon" style="background-color: #FF0000;"></span>Не работает</div>
-        <div class="legend-row"><span class="legend-icon" style="background-color: #AAAAAA;"></span>Снят</div>
-        <div class="legend-row"><span class="legend-icon" style="background-color: #555555;"></span>Демонтирован</div>
-        <div class="legend-row"><span class="legend-icon" style="background-color: #FFFFFF; box-shadow: 0 0 0 1px black;"></span>Не известно</div>
-      </div>
-      <div class="legend-section">
-        <div class="legend-title">Реклама:</div>
-        <div class="legend-row"><span class="legend-border-icon" style="border-color: #FF0000;"></span>LED</div>
-        <div class="legend-row"><span class="legend-border-icon" style="border-color: #0000FF;"></span>Lightbox</div>
-        <div class="legend-row"><span class="legend-border-icon" style="border-color: #00FF00;"></span>(X) Нет</div>
-        <div class="legend-row"><span class="legend-border-icon" style="border-color: #000000;"></span>Не известно</div>
-      </div>
-    `, 'legendToggle'));
+    document.getElementById('statusToggle').addEventListener('click', () => {
+      togglePanel('Состояние', `
+        <div class="filter-buttons">
+          <button onclick="filterStatus('все')">Все</button>
+          <button onclick="filterStatus('работает')">Работает</button>
+          <button onclick="filterStatus('не работает')">Не работает</button>
+          <button onclick="filterStatus('снят')">Снят</button>
+          <button onclick="filterStatus('демонтирован')">Демонтирован</button>
+        </div>
+      `);
+    });
+
+    function filterStatus(status) {
+      let filtered;
+      if (status === 'все') {
+        filtered = markersData;
+      } else {
+        filtered = markersData.filter(marker => marker.status.toLowerCase() === status);
+      }
+      addMarkers(filtered);
+      closePanel();
+      resetOtherFilters('statusToggle');
+      document.getElementById('statusLabel').innerText = `${status.charAt(0).toUpperCase() + status.slice(1)} (${filtered.length})`;
+    }
+
+    document.getElementById('reklamaToggle').addEventListener('click', () => {
+      togglePanel('Реклама', `
+        <div class="filter-buttons">
+          <button onclick="filterReklama('все')">Все</button>
+          <button onclick="filterReklama('led')">LED</button>
+          <button onclick="filterReklama('lightbox')">Lightbox</button>
+          <button onclick="filterReklama('(x) нет')">(X) Нет</button>
+        </div>
+      `);
+    });
+
+    function filterReklama(reklama) {
+      let filtered;
+      if (reklama === 'все') {
+        filtered = markersData;
+      } else {
+        filtered = markersData.filter(marker => marker.reklama.toLowerCase() === reklama);
+      }
+      addMarkers(filtered);
+      closePanel();
+      resetOtherFilters('reklamaToggle');
+      document.getElementById('reklamaLabel').innerText = `${reklama.charAt(0).toUpperCase() + reklama.slice(1)} (${filtered.length})`;
+    }
+
+    function resetOtherFilters(current) {
+      if (current !== 'statusToggle') document.getElementById('statusLabel').innerText = 'Все (205)';
+      if (current !== 'reklamaToggle') document.getElementById('reklamaLabel').innerText = 'Все (205)';
+    }
   </script>
 </body>
 </html>
