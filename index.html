@@ -27,37 +27,20 @@
       z-index: 10001;
     }
     .btn {
-      padding: 10px 20px;
+      padding: 15px 25px;
       background-color: #007BFF;
       color: white;
       border: none;
-      border-radius: 5px;
-      font-size: 14px;
+      border-radius: 8px;
+      font-size: 16px;
       cursor: pointer;
       transition: background-color 0.3s;
       position: relative;
+      min-width: 150px;
+      text-align: center;
     }
     .btn:hover {
       background-color: #0056b3;
-    }
-
-    .dropdown {
-      display: none;
-      position: absolute;
-      bottom: 40px;
-      left: 0;
-      background-color: white;
-      border: 1px solid #ccc;
-      border-radius: 5px;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-      z-index: 10002;
-    }
-    .dropdown div {
-      padding: 10px;
-      cursor: pointer;
-    }
-    .dropdown div:hover {
-      background-color: #f0f0f0;
     }
 
     .overlay {
@@ -81,7 +64,7 @@
       background-color: #fff;
       border-radius: 15px 15px 0 0;
       font-family: sans-serif;
-      font-size: 14px;
+      font-size: 16px;
       padding: 20px;
       box-shadow: 0 -2px 15px rgba(0, 0, 0, 0.3);
       transition: bottom 0.4s ease-in-out;
@@ -91,43 +74,31 @@
       bottom: 10%;
     }
     .panel-title {
-      font-size: 18px;
+      font-size: 20px;
       font-weight: bold;
-      margin-bottom: 5px;
-    }
-    .panel-subtitle {
-      font-size: 14px;
-      font-weight: normal;
-      color: #666;
+      color: #000;
       margin-bottom: 10px;
     }
     .legend-container {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 40px;
-    }
-    .legend-column {
       display: flex;
-      flex-direction: column;
+      flex-wrap: wrap;
+      gap: 10px;
     }
     .legend-row {
       display: flex;
       align-items: center;
+      gap: 10px;
       margin-bottom: 5px;
     }
     .legend-icon, .legend-border-icon {
+      width: 20px;
+      height: 20px;
       display: inline-block;
-      width: 14px;
-      height: 14px;
-      margin-right: 8px;
-      vertical-align: middle;
-    }
-    .legend-icon {
       border-radius: 50%;
     }
     .legend-border-icon {
-      border: 3px solid;
-      border-radius: 50%;
+      border: 2px solid;
+      background-color: #FFFFFF;
     }
   </style>
 </head>
@@ -136,41 +107,16 @@
 
   <div class="control-buttons">
     <button class="btn" id="legendToggle">Легенда</button>
-
-    <button class="btn" id="statusToggle">Статус
-      <div class="dropdown" id="statusDropdown">
-        <div data-status="all">Все</div>
-        <div data-status="работает">Работает</div>
-        <div data-status="не работает">Не работает</div>
-        <div data-status="снят">Снят</div>
-        <div data-status="демонтирован">Демонтирован</div>
-      </div>
-    </button>
-
-    <button class="btn" id="reklamaToggle">Реклама
-      <div class="dropdown" id="reklamaDropdown">
-        <div data-reklama="all">Все</div>
-        <div data-reklama="LED">LED</div>
-        <div data-reklama="Lightbox">Lightbox</div>
-        <div data-reklama="X">(X) None</div>
-      </div>
-    </button>
-
-    <button class="btn" id="combinedToggle">Общие
-      <div class="dropdown" id="combinedDropdown">
-        <div data-combined="all">Все</div>
-        <div data-combined="LED_работает">LED и Работает</div>
-        <div data-combined="X_не работает">(X) None и Не работает</div>
-      </div>
-    </button>
+    <button class="btn" id="statusToggle">Состояние</button>
+    <button class="btn" id="reklamaToggle">Реклама</button>
+    <button class="btn" id="combinedToggle">Общее</button>
   </div>
 
   <div class="overlay" id="overlay"></div>
 
   <div class="bottom-panel" id="bottomPanel">
-    <div class="panel-title" id="panelTitle"></div>
-    <div class="panel-subtitle" id="panelSubtitle"></div>
-    <div id="panelContent"></div>
+    <div class="panel-title" id="panelTitle">Легенда</div>
+    <div id="panelContent" class="legend-container"></div>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
@@ -182,160 +128,42 @@
       maxZoom: 19
     }).addTo(map);
 
-    var url = "https://script.google.com/macros/s/AKfycbw02IfURjZsCIZsckiRYKt_kawJ4OlazkNILhw4cGwSj-9cdAXzbP6AtNWWr3zNFnky/exec";
+    var currentPanel = null;
 
-    var markers = [];
-
-    fetch(url)
-      .then(response => response.json())
-      .then(data => {
-        data.forEach(item => {
-          var lat = parseFloat(item.lat);
-          var lng = parseFloat(item.lng);
-          if (isNaN(lat) || isNaN(lng)) return;
-
-          var statusRaw = (item.status || '').trim().toLowerCase();
-          var reklamaRaw = (item.reklama || '').trim();
-          var reklama = reklamaRaw === '' || reklamaRaw.toLowerCase() === 'none' ? 'X' : reklamaRaw;
-
-          var markerIcon = createCustomIcon(statusRaw, reklama);
-          var marker = L.marker([lat, lng], { icon: markerIcon });
-
-          marker.bindPopup(`<b>Название остановки:</b> ${item.stopName || ''}<br>
-                             <b>Улица:</b> ${item.street || ''}<br>
-                             <b>Статус:</b> ${item.status || ''}<br>
-                             <b>Реклама:</b> ${reklama}`);
-
-          marker.status = statusRaw;
-          marker.reklama = reklama;
-
-          markers.push(marker);
-          marker.addTo(map);
-        });
-
-        setupDropdownFilters();
-      })
-      .catch(err => console.error("Ошибка при загрузке JSON:", err));
-
-    function setupDropdownFilters() {
-      document.querySelectorAll('.btn').forEach(button => {
-        button.addEventListener('click', () => {
-          const dropdown = button.querySelector('.dropdown');
-          document.querySelectorAll('.dropdown').forEach(d => d.style.display = 'none');
-          if (dropdown) dropdown.style.display = 'block';
-        });
-      });
-
-      document.querySelectorAll('.dropdown div').forEach(option => {
-        option.addEventListener('click', () => {
-          const status = option.getAttribute('data-status');
-          const reklama = option.getAttribute('data-reklama');
-          const combined = option.getAttribute('data-combined');
-          filterMarkers(status, reklama, combined);
-          document.querySelectorAll('.dropdown').forEach(d => d.style.display = 'none');
-        });
-      });
-
-      document.getElementById('overlay').addEventListener('click', () => {
-        document.querySelectorAll('.dropdown').forEach(d => d.style.display = 'none');
-      });
-
-      document.getElementById('legendToggle').addEventListener('click', () => {
-        toggleLegend();
-      });
-    }
-
-    function toggleLegend() {
+    function togglePanel(title, content, buttonId) {
       const panel = document.getElementById('bottomPanel');
       const overlay = document.getElementById('overlay');
 
-      if (panel.classList.contains('active')) {
+      if (currentPanel === buttonId && panel.classList.contains('active')) {
         panel.classList.remove('active');
         overlay.style.display = 'none';
+        currentPanel = null;
       } else {
-        document.getElementById('panelTitle').innerText = 'Легенда';
-        document.getElementById('panelSubtitle').innerText = '';
-        document.getElementById('panelContent').innerHTML = `
-          <div class="legend-container">
-            <div class="legend-column">
-              <div class="legend-row"><strong>Статус:</strong></div>
-              <div class="legend-row"><span class="legend-icon" style="background-color: #00FF00;"></span>Работает</div>
-              <div class="legend-row"><span class="legend-icon" style="background-color: #FF0000;"></span>Не работает</div>
-              <div class="legend-row"><span class="legend-icon" style="background-color: #AAAAAA;"></span>Снят</div>
-              <div class="legend-row"><span class="legend-icon" style="background-color: #555555;"></span>Демонтирован</div>
-            </div>
-            <div class="legend-column">
-              <div class="legend-row"><strong>Вид Рекламы:</strong></div>
-              <div class="legend-row"><span class="legend-border-icon" style="border-color: #FF0000; background-color: #FFFFFF;"></span>LED</div>
-              <div class="legend-row"><span class="legend-border-icon" style="border-color: #0000FF; background-color: #FFFFFF;"></span>Lightbox</div>
-              <div class="legend-row"><span class="legend-border-icon" style="border-color: #00FF00; background-color: #FFFFFF;"></span>(X) None</div>
-            </div>
-          </div>`;
-
+        document.getElementById('panelTitle').innerText = title;
+        document.getElementById('panelContent').innerHTML = content;
         panel.classList.add('active');
         overlay.style.display = 'block';
+        currentPanel = buttonId;
       }
-    }
 
-    function filterMarkers(status = 'all', reklama = 'all', combined = 'all') {
-      markers.forEach(marker => {
-        map.removeLayer(marker);
-
-        let statusMatch = status === 'all' || marker.status.includes(status);
-        let reklamaMatch = reklama === 'all' || marker.reklama === reklama;
-        let combinedMatch = true;
-
-        if (combined !== 'all') {
-          if (combined === 'LED_работает') {
-            combinedMatch = marker.reklama === 'LED' && marker.status.includes('работает');
-          } else if (combined === 'X_не работает') {
-            combinedMatch = marker.reklama === 'X' && marker.status.includes('не работает');
-          }
-        }
-
-        if (statusMatch && reklamaMatch && combinedMatch) {
-          marker.addTo(map);
-        }
+      overlay.addEventListener('click', () => {
+        panel.classList.remove('active');
+        overlay.style.display = 'none';
+        currentPanel = null;
       });
     }
 
-    function createCustomIcon(status, reklama) {
-      var fillColor = getStatusFill(status);
-      var borderColors = getReklamaBorder(reklama);
-
-      var style = [
-        'width:14px',
-        'height:14px',
-        'border-radius:50%',
-        'background-color:' + fillColor,
-        'border:3px solid ' + borderColors.outer,
-        'box-shadow: inset 0 0 0 1px ' + borderColors.inner
-      ].join(';');
-
-      return L.divIcon({
-        html: '<div style="' + style + '"></div>',
-        iconSize: [20, 20],
-        iconAnchor: [10, 10],
-        className: ''
-      });
-    }
-
-    function getStatusFill(status) {
-      if (status.includes('работает')) return '#00FF00';
-      else if (status.includes('не работает')) return '#FF0000';
-      else if (status.includes('снят')) return '#AAAAAA';
-      else if (status.includes('демонт')) return '#555555';
-      return '#FFFFFF';
-    }
-
-    function getReklamaBorder(reklama) {
-      switch (reklama) {
-        case 'LED': return { outer: '#FF0000', inner: '#FFFFFF' };
-        case 'Lightbox': return { outer: '#0000FF', inner: '#FFFFFF' };
-        case 'X': return { outer: '#00FF00', inner: '#FFFFFF' };
-        default: return { outer: '#000000', inner: '#FFFFFF' };
-      }
-    }
+    document.getElementById('legendToggle').addEventListener('click', () => {
+      togglePanel('Легенда', `
+        <div class="legend-row"><span class="legend-icon" style="background-color: #00FF00;"></span>Работает</div>
+        <div class="legend-row"><span class="legend-icon" style="background-color: #FF0000;"></span>Не работает</div>
+        <div class="legend-row"><span class="legend-icon" style="background-color: #AAAAAA;"></span>Снят</div>
+        <div class="legend-row"><span class="legend-icon" style="background-color: #555555;"></span>Демонтирован</div>
+        <div class="legend-row"><span class="legend-border-icon" style="border-color: #FF0000;"></span>LED</div>
+        <div class="legend-row"><span class="legend-border-icon" style="border-color: #0000FF;"></span>Lightbox</div>
+        <div class="legend-row"><span class="legend-border-icon" style="border-color: #00FF00;"></span>(X) Нет</div>
+      `, 'legendToggle');
+    });
   </script>
 </body>
 </html>
