@@ -88,13 +88,22 @@
     .legend-container {
       display: flex;
       flex-wrap: wrap;
+      gap: 20px;
+      justify-content: space-between;
+    }
+    .legend-section {
+      display: flex;
+      flex-direction: column;
       gap: 10px;
+    }
+    .legend-title {
+      font-weight: bold;
+      margin-bottom: 5px;
     }
     .legend-row {
       display: flex;
       align-items: center;
       gap: 10px;
-      margin-bottom: 5px;
     }
     .legend-icon, .legend-border-icon {
       width: 20px;
@@ -144,127 +153,6 @@
   <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
 
   <script>
-    var map = L.map('map').setView([51.09, 71.45], 11);
-
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19
-    }).addTo(map);
-
-    var currentPanel = null;
-    var markers = [];
-    var filteredMarkers = [];
-
-    var sheetUrl = 'https://script.google.com/macros/s/AKfycbw02IfURjZsCIZsckiRYKt_kawJ4OlazkNILhw4cGwSj-9cdAXzbP6AtNWWr3zNFnky/exec';
-
-    fetch(sheetUrl)
-      .then(response => response.json())
-      .then(data => {
-        data.forEach(item => {
-          var customIcon = createCustomIcon(item.status, item.reklama);
-          var marker = L.marker([parseFloat(item.lat), parseFloat(item.lng)], { icon: customIcon });
-          marker.status = item.status.toLowerCase();
-          marker.reklama = item.reklama;
-          marker.bindPopup(`<b>Название остановки:</b> ${item.stopName}<br><b>Улица:</b> ${item.street}<br><b>Направление:</b> ${item.direction}<br><b>Район:</b> ${item.region}<br><b>ID Остановки:</b> ${item.stopId}<br><b>Статус:</b> ${item.status}<br><b>Реклама:</b> ${item.reklama}<br><b>Питание (S):</b> ${item.power}`);
-          markers.push(marker);
-        });
-        filteredMarkers = [...markers];
-        markers.forEach(marker => marker.addTo(map));
-      })
-      .catch(err => console.error('Ошибка загрузки данных:', err));
-
-    function createCustomIcon(status, reklama) {
-      var fillColor = getStatusColor(status);
-      var borderColor = getReklamaColor(reklama);
-
-      return L.divIcon({
-        className: '',
-        html: `<div style="width: 20px; height: 20px; background-color: ${fillColor}; border: 5px solid ${borderColor}; box-shadow: inset 0 0 0 1px black; border-radius: 50%;"></div>`
-      });
-    }
-
-    function getStatusColor(status) {
-      switch (status.toLowerCase()) {
-        case 'работает': return '#00FF00';
-        case 'не работает': return '#FF0000';
-        case 'снят': return '#AAAAAA';
-        case 'демонтирован': return '#555555';
-        default: return '#FFFFFF';
-      }
-    }
-
-    function getReklamaColor(reklama) {
-      switch (reklama) {
-        case 'LED': return '#FF0000';
-        case 'Lightbox': return '#0000FF';
-        case 'X': return '#00FF00';
-        default: return '#000000';
-      }
-    }
-
-    function applyFilter(type, value) {
-      resetFilterLabels();
-      document.getElementById(`${type}Label`).innerText = `${value}`;
-      filteredMarkers.forEach(marker => map.removeLayer(marker));
-      filteredMarkers = markers.filter(marker => {
-        if (type === 'status') return marker.status.includes(value.toLowerCase());
-        if (type === 'reklama') return marker.reklama.includes(value);
-        if (type === 'combined') return (marker.status.includes('работает') && ['LED', 'Lightbox'].includes(marker.reklama)) || (marker.status.includes('не работает') && marker.reklama === 'X');
-        return true;
-      });
-      filteredMarkers.forEach(marker => map.addLayer(marker));
-      document.getElementById(`${type}Label`).innerText += ` (${filteredMarkers.length})`;
-      closePanel();
-    }
-
-    function resetFilterLabels() {
-      document.getElementById('statusLabel').innerText = 'Все';
-      document.getElementById('reklamaLabel').innerText = 'Все';
-      document.getElementById('combinedLabel').innerText = 'Все';
-    }
-
-    function closePanel() {
-      document.getElementById('bottomPanel').classList.remove('active');
-      document.getElementById('overlay').style.display = 'none';
-      currentPanel = null;
-    }
-
-    document.getElementById('statusToggle').addEventListener('click', () => togglePanel('Состояние', `
-      <div class="filter-buttons">
-        <button onclick="applyFilter('status', 'работает')">Работает</button>
-        <button onclick="applyFilter('status', 'не работает')">Не работает</button>
-        <button onclick="applyFilter('status', 'снят')">Снят</button>
-        <button onclick="applyFilter('status', 'демонтирован')">Демонтирован</button>
-        <button onclick="applyFilter('status', 'Все')">Все</button>
-      </div>
-    `, 'statusToggle'));
-
-    document.getElementById('reklamaToggle').addEventListener('click', () => togglePanel('Реклама', `
-      <div class="filter-buttons">
-        <button onclick="applyFilter('reklama', 'LED')">LED</button>
-        <button onclick="applyFilter('reklama', 'Lightbox')">Lightbox</button>
-        <button onclick="applyFilter('reklama', 'X')">(X) Нет</button>
-        <button onclick="applyFilter('reklama', 'Все')">Все</button>
-      </div>
-    `, 'reklamaToggle'));
-
-    document.getElementById('combinedToggle').addEventListener('click', () => togglePanel('Общее', `
-      <div class="filter-buttons">
-        <button onclick="applyFilter('combined', 'Все')">Все</button>
-        <button onclick="applyFilter('combined', 'Работает с LED/Lightbox')">Работает с LED/Lightbox</button>
-        <button onclick="applyFilter('combined', 'Не работает с (X)')">Не работает с (X)</button>
-      </div>
-    `, 'combinedToggle'));
-
-    document.getElementById('legendToggle').addEventListener('click', () => togglePanel('Легенда', `
-      <div class="legend-row"><span class="legend-icon" style="background-color: #00FF00;"></span>Работает</div>
-      <div class="legend-row"><span class="legend-icon" style="background-color: #FF0000;"></span>Не работает</div>
-      <div class="legend-row"><span class="legend-icon" style="background-color: #AAAAAA;"></span>Снят</div>
-      <div class="legend-row"><span class="legend-icon" style="background-color: #555555;"></span>Демонтирован</div>
-      <div class="legend-row"><span class="legend-border-icon" style="border-color: #FF0000;"></span>LED</div>
-      <div class="legend-row"><span class="legend-border-icon" style="border-color: #0000FF;"></span>Lightbox</div>
-      <div class="legend-row"><span class="legend-border-icon" style="border-color: #00FF00;"></span>(X) Нет</div>
-    `, 'legendToggle'));
-
     function togglePanel(title, content, buttonId) {
       const panel = document.getElementById('bottomPanel');
       const overlay = document.getElementById('overlay');
@@ -281,6 +169,24 @@
 
       overlay.addEventListener('click', closePanel);
     }
+
+    document.getElementById('legendToggle').addEventListener('click', () => togglePanel('Легенда', `
+      <div class="legend-section">
+        <div class="legend-title">Статус:</div>
+        <div class="legend-row"><span class="legend-icon" style="background-color: #00FF00;"></span>Работает</div>
+        <div class="legend-row"><span class="legend-icon" style="background-color: #FF0000;"></span>Не работает</div>
+        <div class="legend-row"><span class="legend-icon" style="background-color: #AAAAAA;"></span>Снят</div>
+        <div class="legend-row"><span class="legend-icon" style="background-color: #555555;"></span>Демонтирован</div>
+        <div class="legend-row"><span class="legend-icon" style="background-color: #FFFFFF; box-shadow: 0 0 0 1px black;"></span>Не известно</div>
+      </div>
+      <div class="legend-section">
+        <div class="legend-title">Реклама:</div>
+        <div class="legend-row"><span class="legend-border-icon" style="border-color: #FF0000;"></span>LED</div>
+        <div class="legend-row"><span class="legend-border-icon" style="border-color: #0000FF;"></span>Lightbox</div>
+        <div class="legend-row"><span class="legend-border-icon" style="border-color: #00FF00;"></span>(X) Нет</div>
+        <div class="legend-row"><span class="legend-border-icon" style="border-color: #000000;"></span>Не известно</div>
+      </div>
+    `, 'legendToggle'));
   </script>
 </body>
 </html>
