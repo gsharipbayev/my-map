@@ -100,6 +100,21 @@
       border: 2px solid;
       background-color: #FFFFFF;
     }
+    .filter-buttons button {
+      width: 100%;
+      padding: 15px;
+      margin: 5px 0;
+      background-color: #007BFF;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    .filter-buttons button:hover {
+      background-color: #0056b3;
+    }
   </style>
 </head>
 <body>
@@ -164,6 +179,49 @@
         <div class="legend-row"><span class="legend-border-icon" style="border-color: #00FF00;"></span>(X) Нет</div>
       `, 'legendToggle');
     });
+
+    document.getElementById('statusToggle').addEventListener('click', () => {
+      togglePanel('Состояние', `
+        <div class="filter-buttons">
+          <button onclick="filterMarkers('all')">Все</button>
+          <button onclick="filterMarkers('работает')">Рабочие</button>
+          <button onclick="filterMarkers('не работает,снят,демонтирован')">Не рабочие/Снятые/Демонтированные</button>
+        </div>
+      `, 'statusToggle');
+    });
+
+    document.getElementById('reklamaToggle').addEventListener('click', () => {
+      togglePanel('Реклама', `
+        <div class="filter-buttons">
+          <button onclick="filterMarkers(null, 'all')">Все</button>
+          <button onclick="filterMarkers(null, 'LED')">LED</button>
+          <button onclick="filterMarkers(null, 'Lightbox')">Lightbox</button>
+          <button onclick="filterMarkers(null, 'X')">(X) Нет</button>
+        </div>
+      `, 'reklamaToggle');
+    });
+
+    document.getElementById('combinedToggle').addEventListener('click', () => {
+      togglePanel('Общее', `
+        <div class="filter-buttons">
+          <button onclick="filterMarkers('all', 'all')">Все</button>
+          <button onclick="filterMarkers('работает', 'LED,Lightbox')">Работает с LED/Lightbox</button>
+          <button onclick="filterMarkers('не работает,снят,демонтирован', 'X')">Не работает/Снят/Демонтирован с (X)</button>
+        </div>
+      `, 'combinedToggle');
+    });
+
+    function filterMarkers(status = 'all', reklama = 'all') {
+      markers.forEach(marker => {
+        map.removeLayer(marker);
+        let statusMatch = status === 'all' || status.split(',').some(s => marker.status.includes(s));
+        let reklamaMatch = reklama === 'all' || reklama.split(',').includes(marker.reklama);
+
+        if (statusMatch && reklamaMatch) {
+          marker.addTo(map);
+        }
+      });
+    }
   </script>
 </body>
 </html>
