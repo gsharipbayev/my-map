@@ -15,6 +15,7 @@
     #map {
       width: 100%;
       height: 100%;
+      z-index: 0;
     }
 
     .control-buttons {
@@ -24,7 +25,7 @@
       transform: translateX(-50%);
       display: flex;
       gap: 10px;
-      z-index: 10001;
+      z-index: 1001;
     }
     .btn {
       padding: 15px 25px;
@@ -38,6 +39,7 @@
       position: relative;
       min-width: 150px;
       text-align: center;
+      z-index: 1001;
     }
     .btn:hover {
       background-color: #0056b3;
@@ -57,7 +59,7 @@
       height: 100%;
       background-color: rgba(0, 0, 0, 0.5);
       display: none;
-      z-index: 10000;
+      z-index: 1000;
     }
 
     .bottom-panel {
@@ -74,7 +76,7 @@
       padding: 20px;
       box-shadow: 0 -2px 15px rgba(0, 0, 0, 0.3);
       transition: bottom 0.4s ease-in-out;
-      z-index: 10002;
+      z-index: 1002;
     }
     .bottom-panel.active {
       bottom: 10%;
@@ -131,6 +133,14 @@
     .filter-buttons button:hover {
       background-color: #0056b3;
     }
+    .search-input {
+      width: 100%;
+      padding: 15px;
+      margin: 5px 0;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 16px;
+    }
   </style>
 </head>
 <body>
@@ -140,7 +150,7 @@
     <button class="btn" id="legendToggle">Легенда</button>
     <button class="btn" id="statusToggle">Состояние <span id="statusLabel">Все</span></button>
     <button class="btn" id="reklamaToggle">Реклама <span id="reklamaLabel">Все</span></button>
-    <button class="btn" id="combinedToggle">Общее <span id="combinedLabel">Все</span></button>
+    <button class="btn" id="searchToggle">Поиск по ID Табло</button>
   </div>
 
   <div class="overlay" id="overlay"></div>
@@ -153,6 +163,122 @@
   <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
 
   <script>
+    const map = L.map('map').setView([51.09, 71.45], 11);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19
+    }).addTo(map);
+
+    let markersData = [];
+
+    fetch('https://script.google.com/macros/s/AKfycbw02IfURjZsCIZsckiRYKt_kawJ4OlazkNILhw4cGwSj-9cdAXzbP6AtNWWr3zNFnky/exec')
+      .then(response => response.json())
+      .then(data => {
+        markersData = data;
+        addMarkers(markersData);
+      })
+      .catch(error => console.error('Ошибка загрузки данных:', error));
+
+    let markers = [];
+
+    function addMarkers(data) {
+      clearMarkers();
+      data.forEach(marker => {
+        const icon = L.divIcon({
+          className: 'custom-icon',
+          html: `<div style="background-color: ${getStatusColor(marker.status)}; border: 3px solid ${getReklamaColor(marker.reklama)}; width: 20px; height: 20px; border-radius: 50%;"></div>`
+        });
+        const mapMarker = L.marker([marker.lat, marker.lng], { icon: icon }).addTo(map);
+        markers.push(mapMarker);
+      });
+    }
+
+    function clearMarkers() {
+      markers.forEach(marker => map.removeLayer(marker));
+      markers = [];
+    }
+
+    function getStatusColor(status) {
+      switch (status.toLowerCase()) {
+        case 'работает': return '#00FF00';
+        case 'не работает': return '#FF0000';
+        case 'снят': return '#AAAAAA';
+        case 'демонтирован': return '#555555';
+        default: return '#FFFFFF';
+      }
+    }
+
+    function getReklamaColor(reklama) {
+      switch (reklama.toLowerCase()) {
+        case 'led': return '#FF0000';
+        case 'lightbox': return '#0000FF';
+        case '(x) нет': return '#00FF00';
+        default: return '#000000';
+      }
+    }
+
+    document.getElementById('statusToggle').addEventListener('click', () => {
+      togglePanel('Состояние', `
+        <div class="filter-buttons">
+          <button onclick="filterStatus('все')">Все</button>
+          <button onclick="filterStatus('работает')">Работает</button>
+          <button onclick="filterStatus('не работает')">Не работает</button>
+          <button onclick="filterStatus('снят')">Снят</button>
+          <button onclick="filterStatus('демонтирован')">Демонтирован</button>
+        </div>
+      `, 'statusToggle');
+    });
+
+    function filterStatus(status) {
+      if (status === 'все') {
+        addMarkers(markersData);
+      } else {
+        const filtered = markersData.filter(marker => marker.status.toLowerCase() === status);
+        addMarkers(filtered);
+      }
+      closePanel();
+      document.getElementById('statusLabel').innerText = status.charAt(0).toUpperCase() + status.slice(1);
+    }
+
+    document.getElementById('reklamaToggle').addEventListener('click', () => {
+      togglePanel('Реклама', `
+        <div class="filter-buttons">
+          <button onclick="filterReklama('все')">Все</button>
+          <button onclick="filterReklama('led')">LED</button>
+          <button onclick="filterReklama('lightbox')">Lightbox</button>
+          <button onclick="filterReklama('(x) нет')">(X) Нет</button>
+        </div>
+      `, 'reklamaToggle');
+    });
+
+    function filterReklama(reklama) {
+      if (reklama === 'все') {
+        addMarkers(markersData);
+      } else {
+        const filtered = markersData.filter(marker => marker.reklama.toLowerCase() === reklama);
+        addMarkers(filtered);
+      }
+      closePanel();
+      document.getElementById('reklamaLabel').innerText = reklama.charAt(0).toUpperCase() + reklama.slice(1);
+    }
+
+    document.getElementById('searchToggle').addEventListener('click', () => {
+      togglePanel('Поиск по ID Табло', `
+        <input type="text" class="search-input" id="searchInput" placeholder="Введите ID Табло" oninput="searchById()">
+      `, 'searchToggle');
+    });
+
+    function searchById() {
+      const query = document.getElementById('searchInput').value.trim().toLowerCase();
+      if (!query) {
+        addMarkers(markersData);
+        return;
+      }
+      const filtered = markersData.filter(marker => (marker.id || '').toLowerCase().includes(query));
+      addMarkers(filtered);
+    }
+
+    let currentPanel = null;
+
     function togglePanel(title, content, buttonId) {
       const panel = document.getElementById('bottomPanel');
       const overlay = document.getElementById('overlay');
@@ -168,6 +294,14 @@
       }
 
       overlay.addEventListener('click', closePanel);
+    }
+
+    function closePanel() {
+      const panel = document.getElementById('bottomPanel');
+      const overlay = document.getElementById('overlay');
+      panel.classList.remove('active');
+      overlay.style.display = 'none';
+      currentPanel = null;
     }
 
     document.getElementById('legendToggle').addEventListener('click', () => togglePanel('Легенда', `
