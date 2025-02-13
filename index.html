@@ -11,6 +11,10 @@ let uniqueMonths = [];
 fetch('https://script.google.com/macros/s/AKfycbw02IfURjZsCIZsckiRYKt_kawJ4OlazkNILhw4cGwSj-9cdAXzbP6AtNWWr3zNFnky/exec')
   .then(response => response.json())
   .then(data => {
+    if (!Array.isArray(data)) {
+      console.error('Ошибка: получены некорректные данные');
+      return;
+    }
     markersData = data;
     extractUniqueMonths();
     addMarkers(markersData);
@@ -21,6 +25,7 @@ fetch('https://script.google.com/macros/s/AKfycbw02IfURjZsCIZsckiRYKt_kawJ4Olazk
 function addMarkers(data) {
   clearMarkers();
   data.forEach(marker => {
+    if (!marker.lat || !marker.lng) return;
     const icon = L.divIcon({
       className: 'custom-icon',
       html: `<div style="background-color: ${getStatusColor(marker.status)}; border: 6px solid ${getReklamaColor(marker.reklama)}; width: 20px; height: 20px; border-radius: 50%;"></div>`
@@ -36,29 +41,31 @@ function clearMarkers() {
 }
 
 function getStatusColor(status) {
-  switch (status.toLowerCase()) {
-    case 'работает': return '#00FF00';
-    case 'не работает': return '#FF0000';
-    case 'снят': return '#AAAAAA';
-    case 'снят табло': return '#D3D3D3';
-    case 'демонтирован': return '#555555';
-    default: return '#FFFFFF';
-  }
+  const statusColors = {
+    'работает': '#00FF00',
+    'не работает': '#FF0000',
+    'снят': '#AAAAAA',
+    'снят табло': '#D3D3D3',
+    'демонтирован': '#555555',
+    'x нет': '#808080',
+    'нет': '#808080'
+  };
+  return statusColors[status.toLowerCase()] || '#FFFFFF';
 }
 
 function getReklamaColor(reklama) {
-  switch (reklama.toLowerCase()) {
-    case 'led': return '#FF0000';
-    case 'lightbox': return '#0000FF';
-    case '(x) нет': return '#00FF00';
-    case 'none': return '#808080';
-    case 'x none': return '#808080';
-    default: return '#000000';
-  }
+  const reklamaColors = {
+    'led': '#FF0000',
+    'lightbox': '#0000FF',
+    '(x) нет': '#00FF00',
+    'нет': '#808080',
+    'x нет': '#808080'
+  };
+  return reklamaColors[reklama.toLowerCase()] || '#000000';
 }
 
 function extractUniqueMonths() {
-  uniqueMonths = [...new Set(markersData.map(marker => marker.month))].sort();
+  uniqueMonths = [...new Set(markersData.map(marker => marker.month).filter(m => m))].sort();
 }
 
 function createPlanButtons() {
@@ -111,5 +118,13 @@ function closePanel() {
 
 document.getElementById('legendToggle').addEventListener('click', () => {
   togglePanel('Легенда', updateLegend());
+});
+
+// Изменение кнопки "Поиск по ID Табло" на "План"
+const searchToggle = document.getElementById('searchToggle');
+searchToggle.innerText = 'План';
+searchToggle.removeEventListener('click', togglePanel);
+searchToggle.addEventListener('click', () => {
+  togglePanel('Фильтр по месяцам', generatePlanButtons());
 });
 </script>
