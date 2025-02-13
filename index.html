@@ -1,4 +1,3 @@
-<script>
 const map = L.map('map').setView([51.09, 71.45], 11);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19
@@ -120,11 +119,9 @@ document.getElementById('legendToggle').addEventListener('click', () => {
   togglePanel('Легенда', updateLegend());
 });
 
-// Изменение кнопки "Поиск по ID Табло" на "План"
 const searchToggle = document.getElementById('searchToggle');
 searchToggle.innerText = 'План';
 searchToggle.removeEventListener('click', togglePanel);
 searchToggle.addEventListener('click', () => {
   togglePanel('Фильтр по месяцам', generatePlanButtons());
 });
-</script>
