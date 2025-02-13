@@ -212,7 +212,7 @@
       switch (status.toLowerCase()) {
         case 'работает': return '#00FF00';
         case 'не работает': return '#FF0000';
-        case 'снят табло': return '#D3D3D3';
+        case 'снят': return '#D3D3D3';
         case 'демонтирован': return '#555555';
         default: return '#FFFFFF';
       }
@@ -224,7 +224,7 @@
       switch (rec) {
         case 'led': return '#FF0000';
         case 'lightbox': return '#0000FF';
-        case 'x':
+        case '(x)нет':
         case 'none':
         case 'xнет': return '#00FF00';
         default: return '#000000';
@@ -334,4 +334,8 @@
 
     function resetOtherFilters(current) {
       if (current !== 'statusToggle') document.getElementById('statusLabel').innerText = `Все (${markersData.length})`;
-      if (current !== 'reklamaToggle') document.getElementById('reklamaLabel').innerText
+      if (current !== 'reklamaToggle') document.getElementById('reklamaLabel').innerText = `Все (${markersData.length})`;
+    }
+  </script>
+</body>
+</html>
