@@ -63,8 +63,8 @@
         z-index: 1001;
       }
       .btn {
-        width: 90px;
-        height: 90px;
+        width: 100px;
+        height: 100px;
         font-size: 18px;
         background-color: #007BFF;
         color: white;
@@ -106,9 +106,10 @@
 
   <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
   <script>
+    const isMobile = /Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent);
     const map = L.map('map', {
       zoomControl: false
-    }).setView([51.09, 71.45], 11);
+    }).setView([51.09, 71.45], isMobile ? 12 : 11);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19
     }).addTo(map);
@@ -131,14 +132,6 @@
     document.getElementById('searchToggle').addEventListener('click', () => {
       togglePanel('<p>Поиск по ID Табло</p>');
     });
-
-    function adjustForMobile() {
-      if (window.innerWidth < 768) {
-        map.setZoom(12);
-      }
-    }
-    adjustForMobile();
-    window.addEventListener('resize', adjustForMobile);
   </script>
 </body>
 </html>
