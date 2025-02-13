@@ -153,7 +153,7 @@
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
     
     let markersData = [];
-    let currentMode = 'status'; // режим отображения маркеров (по умолчанию "Состояние")
+    let currentMode = 'status'; // Режим отображения маркеров (по умолчанию "Состояние")
     
     fetch('https://script.google.com/macros/s/AKfycbw02IfURjZsCIZsckiRYKt_kawJ4OlazkNILhw4cGwSj-9cdAXzbP6AtNWWr3zNFnky/exec')
       .then(response => response.json())
@@ -175,7 +175,7 @@
           // Фигурка с заливкой по статусу и тонкой черной обводкой
           html = `<div style="background-color: ${getStatusColor(marker.status)}; border: 1px solid black; width: 20px; height: 20px; border-radius: 50%;"></div>`;
         } else if (currentMode === 'reklama') {
-          // Фигурка с заливкой по рекламе и тонкой черной обводкой
+          // Фигурка с заливкой по рекламе (обновлённые цвета) и тонкой черной обводкой
           html = `<div style="background-color: ${getReklamaColor(marker.reklama)}; border: 1px solid black; width: 20px; height: 20px; border-radius: 50%;"></div>`;
         }
     
@@ -183,7 +183,6 @@
         const mapMarker = L.marker([marker.lat, marker.lng], { icon: icon }).addTo(map);
     
         // Формирование popup с информацией из таблицы
-        // Если названия полей в ваших данных отличаются – измените их соответственно
         let popupContent = `
           <strong>${marker.stopName || marker.stop || 'Остановка не указана'}</strong><br>
           ID Остановки: ${marker.stopId || marker.id || 'не указан'}<br>
@@ -220,12 +219,13 @@
       // Приводим значение к нижнему регистру и удаляем пробелы
       let rec = reklama.toLowerCase().replace(/\s/g, '');
       switch (rec) {
-        case 'led':           return '#FF0000';
-        case 'lightbox':      return '#0000FF';
-        case 'x':             // если в таблице значение просто "X"
+        case 'led':           return '#8B0000'; // тёмно-красный
+        case 'lightbox':      return '#0000FF'; // синий (без изменений)
+        case 'нет':         // если значение после преобразования равно "нет"
+        case 'x':
         case '(x)нет':
         case 'none':
-        case 'xнет':          return '#00FF00';
+        case 'xнет':          return '#006400'; // тёмно-зелёный
         default:              return '#000000';
       }
     }
@@ -265,9 +265,9 @@
         </div>
         <div class="legend-section">
           <div class="legend-title">Реклама</div>
-          <div class="legend-row"><div class="legend-icon" style="background-color: #FF0000;"></div> LED</div>
+          <div class="legend-row"><div class="legend-icon" style="background-color: #8B0000;"></div> LED</div>
           <div class="legend-row"><div class="legend-icon" style="background-color: #0000FF;"></div> Lightbox</div>
-          <div class="legend-row"><div class="legend-icon" style="background-color: #00FF00;"></div> X / None</div>
+          <div class="legend-row"><div class="legend-icon" style="background-color: #006400;"></div> Нет</div>
         </div>
       `);
     });
@@ -306,7 +306,7 @@
           <button onclick="filterReklama('все')">Все</button>
           <button onclick="filterReklama('led')">LED</button>
           <button onclick="filterReklama('lightbox')">Lightbox</button>
-          <button onclick="filterReklama('x')">X / None</button>
+          <button onclick="filterReklama('нет')">Нет</button>
         </div>
       `);
     });
@@ -316,10 +316,10 @@
       let filtered;
       if (reklama === 'все') {
         filtered = markersData;
-      } else if (reklama === 'x') {
+      } else if (reklama === 'нет') {
         filtered = markersData.filter(marker => {
           let rec = marker.reklama.toLowerCase().replace(/\s/g, '');
-          return rec === 'x' || rec === '(x)нет' || rec === 'none' || rec === 'xнет';
+          return rec === 'нет' || rec === 'x' || rec === '(x)нет' || rec === 'none' || rec === 'xнет';
         });
       } else {
         filtered = markersData.filter(marker => marker.reklama.toLowerCase() === reklama);
