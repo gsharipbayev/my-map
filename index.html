@@ -106,10 +106,14 @@
 
   <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
   <script>
-    const isMobile = /Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent);
+    function isMobileDevice() {
+      return window.matchMedia("(max-width: 767px)").matches;
+    }
+    
     const map = L.map('map', {
       zoomControl: false
-    }).setView([51.09, 71.45], isMobile ? 12 : 11);
+    }).setView([51.09, 71.45], isMobileDevice() ? 13 : 11);
+    
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19
     }).addTo(map);
