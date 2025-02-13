@@ -107,16 +107,11 @@
       align-items: center;
       gap: 10px;
     }
-    .legend-icon, .legend-border-icon {
+    .legend-icon {
       width: 20px;
       height: 20px;
       display: inline-block;
       border-radius: 50%;
-    }
-    .legend-border-icon {
-      border: 6px solid;
-      background-color: #FFFFFF;
-      box-shadow: inset 0 0 0 1px black;
     }
     .filter-buttons button {
       width: 100%;
@@ -169,13 +164,14 @@
     }).addTo(map);
 
     let markersData = [];
+    let currentMode = 'status'; // Режим по умолчанию: "Состояние"
 
     fetch('https://script.google.com/macros/s/AKfycbw02IfURjZsCIZsckiRYKt_kawJ4OlazkNILhw4cGwSj-9cdAXzbP6AtNWWr3zNFnky/exec')
       .then(response => response.json())
       .then(data => {
         markersData = data;
         addMarkers(markersData);
-        // Обновляем метку фильтра после загрузки данных
+        // Обновляем метки с количеством объектов
         document.getElementById('statusLabel').innerText = `Все (${markersData.length})`;
         document.getElementById('reklamaLabel').innerText = `Все (${markersData.length})`;
       })
@@ -186,9 +182,17 @@
     function addMarkers(data) {
       clearMarkers();
       data.forEach(marker => {
+        let html = "";
+        if (currentMode === 'status') {
+          // Отображение по состоянию – заливка цвета без обводки
+          html = `<div style="background-color: ${getStatusColor(marker.status)}; width: 20px; height: 20px; border-radius: 50%;"></div>`;
+        } else if (currentMode === 'reklama') {
+          // Отображение по рекламе – заливка цвета без обводки
+          html = `<div style="background-color: ${getReklamaColor(marker.reklama)}; width: 20px; height: 20px; border-radius: 50%;"></div>`;
+        }
         const icon = L.divIcon({
           className: 'custom-icon',
-          html: `<div style="background-color: ${getStatusColor(marker.status)}; border: 6px solid ${getReklamaColor(marker.reklama)}; width: 20px; height: 20px; border-radius: 50%;"></div>`
+          html: html
         });
         const mapMarker = L.marker([marker.lat, marker.lng], { icon: icon }).addTo(map);
         markers.push(mapMarker);
@@ -204,8 +208,7 @@
       switch (status.toLowerCase()) {
         case 'работает': return '#00FF00';
         case 'не работает': return '#FF0000';
-        case 'снят': return '#AAAAAA';
-        case 'снят табло': return '#D3D3D3';
+        case 'снят': return '#D3D3D3';
         case 'демонтирован': return '#555555';
         default: return '#FFFFFF';
       }
@@ -245,25 +248,27 @@
       overlay.style.display = 'none';
     }
 
-    // Обработчик для кнопки Легенда
+    // Легенда
     document.getElementById('legendToggle').addEventListener('click', () => {
+      // Отображаем оба набора легенд без обводок
       togglePanel('Легенда', `
         <div class="legend-section">
           <div class="legend-title">Состояние</div>
           <div class="legend-row"><div class="legend-icon" style="background-color: #00FF00;"></div> Работает</div>
           <div class="legend-row"><div class="legend-icon" style="background-color: #FF0000;"></div> Не работает</div>
-          <div class="legend-row"><div class="legend-icon" style="background-color: #AAAAAA;"></div> Снят</div>
+          <div class="legend-row"><div class="legend-icon" style="background-color: #D3D3D3;"></div> Снят</div>
           <div class="legend-row"><div class="legend-icon" style="background-color: #555555;"></div> Демонтирован</div>
         </div>
         <div class="legend-section">
           <div class="legend-title">Реклама</div>
-          <div class="legend-row"><div class="legend-border-icon" style="border-color: #FF0000;"></div> LED</div>
-          <div class="legend-row"><div class="legend-border-icon" style="border-color: #0000FF;"></div> Lightbox</div>
-          <div class="legend-row"><div class="legend-border-icon" style="border-color: #00FF00;"></div> (X) Нет / None</div>
+          <div class="legend-row"><div class="legend-icon" style="background-color: #FF0000;"></div> LED</div>
+          <div class="legend-row"><div class="legend-icon" style="background-color: #0000FF;"></div> Lightbox</div>
+          <div class="legend-row"><div class="legend-icon" style="background-color: #00FF00;"></div> (X) Нет / None</div>
         </div>
       `);
     });
 
+    // Фильтр по Состоянию
     document.getElementById('statusToggle').addEventListener('click', () => {
       togglePanel('Состояние', `
         <div class="filter-buttons">
@@ -277,6 +282,7 @@
     });
 
     function filterStatus(status) {
+      currentMode = 'status';
       let filtered;
       if (status === 'все') {
         filtered = markersData;
@@ -289,6 +295,7 @@
       document.getElementById('statusLabel').innerText = `${status.charAt(0).toUpperCase() + status.slice(1)} (${filtered.length})`;
     }
 
+    // Фильтр по Рекламе
     document.getElementById('reklamaToggle').addEventListener('click', () => {
       togglePanel('Реклама', `
         <div class="filter-buttons">
@@ -301,6 +308,7 @@
     });
 
     function filterReklama(reklama) {
+      currentMode = 'reklama';
       let filtered;
       if (reklama === 'все') {
         filtered = markersData;
