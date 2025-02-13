@@ -1,3 +1,4 @@
+<script>
 const map = L.map('map').setView([51.09, 71.45], 11);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19
@@ -111,3 +112,4 @@ function closePanel() {
 document.getElementById('legendToggle').addEventListener('click', () => {
   togglePanel('Легенда', updateLegend());
 });
+</script>
