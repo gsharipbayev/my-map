@@ -17,7 +17,6 @@
       height: 100%;
       z-index: 0;
     }
-
     .control-buttons {
       position: absolute;
       bottom: 20px;
@@ -50,7 +49,6 @@
       color: #D1E8FF;
       margin-top: 5px;
     }
-
     .overlay {
       position: fixed;
       top: 0;
@@ -61,7 +59,6 @@
       display: none;
       z-index: 1000;
     }
-
     .bottom-panel {
       position: fixed;
       bottom: -100%;
@@ -112,6 +109,7 @@
       height: 20px;
       display: inline-block;
       border-radius: 50%;
+      border: 1px solid black;
     }
     .filter-buttons button {
       width: 100%;
@@ -184,17 +182,23 @@
       data.forEach(marker => {
         let html = "";
         if (currentMode === 'status') {
-          // Отображение по состоянию – заливка цвета без обводки
-          html = `<div style="background-color: ${getStatusColor(marker.status)}; width: 20px; height: 20px; border-radius: 50%;"></div>`;
+          // Отображение по состоянию – заливка цвета с черной обводкой
+          html = `<div style="background-color: ${getStatusColor(marker.status)}; border: 1px solid black; width: 20px; height: 20px; border-radius: 50%;"></div>`;
         } else if (currentMode === 'reklama') {
-          // Отображение по рекламе – заливка цвета без обводки
-          html = `<div style="background-color: ${getReklamaColor(marker.reklama)}; width: 20px; height: 20px; border-radius: 50%;"></div>`;
+          // Отображение по рекламе – заливка цвета с черной обводкой
+          html = `<div style="background-color: ${getReklamaColor(marker.reklama)}; border: 1px solid black; width: 20px; height: 20px; border-radius: 50%;"></div>`;
         }
         const icon = L.divIcon({
           className: 'custom-icon',
           html: html
         });
         const mapMarker = L.marker([marker.lat, marker.lng], { icon: icon }).addTo(map);
+        
+        // При клике на маркер появляется всплывающее окно с информацией
+        // Если в ваших данных поля называются иначе, измените marker.stop и marker.tablo соответственно
+        let popupContent = `<strong>${marker.stop || 'Остановка'}</strong><br>ID табло: ${marker.tablo || 'не указан'}`;
+        mapMarker.bindPopup(popupContent);
+        
         markers.push(mapMarker);
       });
     }
@@ -208,19 +212,21 @@
       switch (status.toLowerCase()) {
         case 'работает': return '#00FF00';
         case 'не работает': return '#FF0000';
-        case 'снят': return '#D3D3D3';
+        case 'снят табло': return '#D3D3D3';
         case 'демонтирован': return '#555555';
         default: return '#FFFFFF';
       }
     }
 
     function getReklamaColor(reklama) {
-      const rec = reklama.toLowerCase();
+      // Убираем пробелы, чтобы различить варианты написания (например, "(X) Нет", "X Нет")
+      let rec = reklama.toLowerCase().replace(/\s/g, '');
       switch (rec) {
         case 'led': return '#FF0000';
         case 'lightbox': return '#0000FF';
-        case '(x) нет':
-        case 'none': return '#00FF00';
+        case 'x':
+        case 'none':
+        case 'xнет': return '#00FF00';
         default: return '#000000';
       }
     }
@@ -250,7 +256,7 @@
 
     // Легенда
     document.getElementById('legendToggle').addEventListener('click', () => {
-      // Отображаем оба набора легенд без обводок
+      // Отображаем оба набора легенд – все иконки имеют тонкую чёрную обводку
       togglePanel('Легенда', `
         <div class="legend-section">
           <div class="legend-title">Состояние</div>
@@ -314,8 +320,8 @@
         filtered = markersData;
       } else if (reklama === '(x) нет') {
         filtered = markersData.filter(marker => {
-          const rec = marker.reklama.toLowerCase();
-          return rec === '(x) нет' || rec === 'none';
+          let rec = marker.reklama.toLowerCase().replace(/\s/g, '');
+          return rec === '(x)нет' || rec === 'none' || rec === 'xнет';
         });
       } else {
         filtered = markersData.filter(marker => marker.reklama.toLowerCase() === reklama);
@@ -328,8 +334,4 @@
 
     function resetOtherFilters(current) {
       if (current !== 'statusToggle') document.getElementById('statusLabel').innerText = `Все (${markersData.length})`;
-      if (current !== 'reklamaToggle') document.getElementById('reklamaLabel').innerText = `Все (${markersData.length})`;
-    }
-  </script>
-</body>
-</html>
+      if (current !== 'reklamaToggle') document.getElementById('reklamaLabel').innerText
