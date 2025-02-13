@@ -1,56 +1,298 @@
-setTimeout(() => {
-  const map = L.map('map').setView([51.09, 71.45], 11);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
-  
-  let markersData = [];
-  let markers = [];
-  let uniqueMonths = [];
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Leaflet Map (Sheets + Apps Script)</title>
 
-  fetch('https://script.google.com/macros/s/AKfycbw02IfURjZsCIZsckiRYKt_kawJ4OlazkNILhw4cGwSj-9cdAXzbP6AtNWWr3zNFnky/exec')
-    .then(response => response.json())
-    .then(data => {
-      if (!Array.isArray(data)) {
-        console.error('Ошибка: получены некорректные данные');
-        return;
-      }
-      markersData = data;
-      addMarkers(markersData);
-    })
-    .catch(error => console.error('Ошибка загрузки данных:', error));
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"/>
 
-  function addMarkers(data) {
-    data.forEach(marker => {
-      if (!marker.lat || !marker.lng) return;
-      const icon = L.divIcon({
-        className: 'custom-icon',
-        html: `<div style="background-color: ${getStatusColor(marker.status)}; border: 6px solid ${getReklamaColor(marker.reklama)}; width: 20px; height: 20px; border-radius: 50%;"></div>`
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+    }
+    #map {
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+    }
+
+    .control-buttons {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 10px;
+      z-index: 1001;
+    }
+    .btn {
+      padding: 15px 25px;
+      background-color: #007BFF;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+      position: relative;
+      min-width: 150px;
+      text-align: center;
+      z-index: 1001;
+    }
+    .btn:hover {
+      background-color: #0056b3;
+    }
+    .btn span {
+      display: block;
+      font-size: 12px;
+      color: #D1E8FF;
+      margin-top: 5px;
+    }
+
+    .overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      display: none;
+      z-index: 1000;
+    }
+
+    .bottom-panel {
+      position: fixed;
+      bottom: -100%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 90%;
+      max-width: 500px;
+      background-color: #fff;
+      border-radius: 15px 15px 0 0;
+      font-family: sans-serif;
+      font-size: 16px;
+      padding: 20px;
+      box-shadow: 0 -2px 15px rgba(0, 0, 0, 0.3);
+      transition: bottom 0.4s ease-in-out;
+      z-index: 1002;
+    }
+    .bottom-panel.active {
+      bottom: 10%;
+    }
+    .panel-title {
+      font-size: 20px;
+      font-weight: bold;
+      color: #000;
+      margin-bottom: 10px;
+    }
+    .legend-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      justify-content: space-between;
+    }
+    .legend-section {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .legend-title {
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+    .legend-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .legend-icon, .legend-border-icon {
+      width: 20px;
+      height: 20px;
+      display: inline-block;
+      border-radius: 50%;
+    }
+    .legend-border-icon {
+      border: 6px solid;
+      background-color: #FFFFFF;
+      box-shadow: inset 0 0 0 1px black;
+    }
+    .filter-buttons button {
+      width: 100%;
+      padding: 15px;
+      margin: 5px 0;
+      background-color: #007BFF;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    .filter-buttons button:hover {
+      background-color: #0056b3;
+    }
+    .search-input {
+      width: 100%;
+      padding: 15px;
+      margin: 5px 0;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <div class="control-buttons">
+    <button class="btn" id="legendToggle">Легенда</button>
+    <button class="btn" id="statusToggle">Состояние <span id="statusLabel">Все (205)</span></button>
+    <button class="btn" id="reklamaToggle">Реклама <span id="reklamaLabel">Все (205)</span></button>
+    <button class="btn" id="searchToggle">Поиск по ID Табло</button>
+  </div>
+
+  <div class="overlay" id="overlay"></div>
+
+  <div class="bottom-panel" id="bottomPanel">
+    <div class="panel-title" id="panelTitle">Легенда</div>
+    <div id="panelContent" class="legend-container"></div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+
+  <script>
+    const map = L.map('map').setView([51.09, 71.45], 11);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19
+    }).addTo(map);
+
+    let markersData = [];
+
+    fetch('https://script.google.com/macros/s/AKfycbw02IfURjZsCIZsckiRYKt_kawJ4OlazkNILhw4cGwSj-9cdAXzbP6AtNWWr3zNFnky/exec')
+      .then(response => response.json())
+      .then(data => {
+        markersData = data;
+        addMarkers(markersData);
+      })
+      .catch(error => console.error('Ошибка загрузки данных:', error));
+
+    let markers = [];
+
+    function addMarkers(data) {
+      clearMarkers();
+      data.forEach(marker => {
+        const icon = L.divIcon({
+          className: 'custom-icon',
+          html: `<div style="background-color: ${getStatusColor(marker.status)}; border: 6px solid ${getReklamaColor(marker.reklama)}; width: 20px; height: 20px; border-radius: 50%;"></div>`
+        });
+        const mapMarker = L.marker([marker.lat, marker.lng], { icon: icon }).addTo(map);
+        markers.push(mapMarker);
       });
-      L.marker([marker.lat, marker.lng], { icon: icon }).addTo(map);
+    }
+
+    function clearMarkers() {
+      markers.forEach(marker => map.removeLayer(marker));
+      markers = [];
+    }
+
+    function getStatusColor(status) {
+      switch (status.toLowerCase()) {
+        case 'работает': return '#00FF00';
+        case 'не работает': return '#FF0000';
+        case 'снят': return '#AAAAAA';
+        case 'снят табло': return '#D3D3D3';
+        case 'демонтирован': return '#555555';
+        default: return '#FFFFFF';
+      }
+    }
+
+    function getReklamaColor(reklama) {
+      switch (reklama.toLowerCase()) {
+        case 'led': return '#FF0000';
+        case 'lightbox': return '#0000FF';
+        case '(x) нет': return '#00FF00';
+        default: return '#000000';
+      }
+    }
+
+    function togglePanel(title, content, buttonId) {
+      const panel = document.getElementById('bottomPanel');
+      const overlay = document.getElementById('overlay');
+
+      if (panel.classList.contains('active') && document.getElementById('panelTitle').innerText === title) {
+        closePanel();
+      } else {
+        document.getElementById('panelTitle').innerText = title;
+        document.getElementById('panelContent').innerHTML = content;
+        panel.classList.add('active');
+        overlay.style.display = 'block';
+      }
+
+      overlay.addEventListener('click', closePanel);
+    }
+
+    function closePanel() {
+      const panel = document.getElementById('bottomPanel');
+      const overlay = document.getElementById('overlay');
+      panel.classList.remove('active');
+      overlay.style.display = 'none';
+    }
+
+    document.getElementById('statusToggle').addEventListener('click', () => {
+      togglePanel('Состояние', `
+        <div class="filter-buttons">
+          <button onclick="filterStatus('все')">Все</button>
+          <button onclick="filterStatus('работает')">Работает</button>
+          <button onclick="filterStatus('не работает')">Не работает</button>
+          <button onclick="filterStatus('снят')">Снят</button>
+          <button onclick="filterStatus('демонтирован')">Демонтирован</button>
+        </div>
+      `);
     });
-  }
 
-  function getStatusColor(status) {
-    const statusColors = {
-      'работает': '#00FF00',
-      'не работает': '#FF0000',
-      'снят': '#AAAAAA',
-      'снят табло': '#D3D3D3',
-      'демонтирован': '#555555',
-      'x нет': '#808080',
-      'нет': '#808080'
-    };
-    return statusColors[status?.toLowerCase()] || '#FFFFFF';
-  }
+    function filterStatus(status) {
+      let filtered;
+      if (status === 'все') {
+        filtered = markersData;
+      } else {
+        filtered = markersData.filter(marker => marker.status.toLowerCase() === status);
+      }
+      addMarkers(filtered);
+      closePanel();
+      resetOtherFilters('statusToggle');
+      document.getElementById('statusLabel').innerText = `${status.charAt(0).toUpperCase() + status.slice(1)} (${filtered.length})`;
+    }
 
-  function getReklamaColor(reklama) {
-    const reklamaColors = {
-      'led': '#FF0000',
-      'lightbox': '#0000FF',
-      '(x) нет': '#00FF00',
-      'нет': '#808080',
-      'x нет': '#808080'
-    };
-    return reklamaColors[reklama?.toLowerCase()] || '#000000';
-  }
+    document.getElementById('reklamaToggle').addEventListener('click', () => {
+      togglePanel('Реклама', `
+        <div class="filter-buttons">
+          <button onclick="filterReklama('все')">Все</button>
+          <button onclick="filterReklama('led')">LED</button>
+          <button onclick="filterReklama('lightbox')">Lightbox</button>
+          <button onclick="filterReklama('(x) нет')">(X) Нет</button>
+        </div>
+      `);
+    });
 
-}, 2000);
+    function filterReklama(reklama) {
+      let filtered;
+      if (reklama === 'все') {
+        filtered = markersData;
+      } else {
+        filtered = markersData.filter(marker => marker.reklama.toLowerCase() === reklama);
+      }
+      addMarkers(filtered);
+      closePanel();
+      resetOtherFilters('reklamaToggle');
+      document.getElementById('reklamaLabel').innerText = `${reklama.charAt(0).toUpperCase() + reklama.slice(1)} (${filtered.length})`;
+    }
+
+    function resetOtherFilters(current) {
+      if (current !== 'statusToggle') document.getElementById('statusLabel').innerText = 'Все (205)';
+      if (current !== 'reklamaToggle') document.getElementById('reklamaLabel').innerText = 'Все (205)';
+    }
+  </script>
+</body>
+</html>
