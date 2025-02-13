@@ -53,18 +53,18 @@
     @media screen and (max-width: 767px) {
       .control-buttons {
         position: absolute;
-        bottom: 20px;
+        bottom: 5vh;
         left: 50%;
         transform: translateX(-50%);
-        display: flex;
-        justify-content: space-between;
-        width: 90%;
-        gap: 5px;
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+        width: 90vw;
         z-index: 1001;
       }
       .btn {
-        width: 80px;
-        height: 80px;
+        width: 90px;
+        height: 90px;
         font-size: 18px;
         background-color: #007BFF;
         color: white;
@@ -78,7 +78,7 @@
       bottom: -100%;
       left: 50%;
       transform: translateX(-50%);
-      width: 90%;
+      width: 90vw;
       max-width: 500px;
       background-color: #fff;
       border-radius: 15px 15px 0 0;
@@ -88,7 +88,7 @@
       z-index: 1002;
     }
     .bottom-panel.active {
-      bottom: 10%;
+      bottom: 10vh;
     }
   </style>
 </head>
@@ -106,7 +106,9 @@
 
   <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
   <script>
-    const map = L.map('map').setView([51.09, 71.45], 11);
+    const map = L.map('map', {
+      zoomControl: false
+    }).setView([51.09, 71.45], 11);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19
     }).addTo(map);
@@ -129,6 +131,14 @@
     document.getElementById('searchToggle').addEventListener('click', () => {
       togglePanel('<p>Поиск по ID Табло</p>');
     });
+
+    function adjustForMobile() {
+      if (window.innerWidth < 768) {
+        map.setZoom(12);
+      }
+    }
+    adjustForMobile();
+    window.addEventListener('resize', adjustForMobile);
   </script>
 </body>
 </html>
