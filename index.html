@@ -53,21 +53,22 @@
     @media screen and (max-width: 767px) {
       .control-buttons {
         position: absolute;
-        bottom: 10px;
+        bottom: 20px;
         left: 50%;
         transform: translateX(-50%);
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 10px;
+        display: flex;
+        justify-content: space-between;
+        width: 90%;
+        gap: 5px;
         z-index: 1001;
       }
       .btn {
-        width: 70px;
-        height: 70px;
-        font-size: 14px;
+        width: 80px;
+        height: 80px;
+        font-size: 18px;
         background-color: #007BFF;
         color: white;
-        border-radius: 10px;
+        border-radius: 12px;
       }
     }
 
