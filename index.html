@@ -175,6 +175,9 @@
       .then(data => {
         markersData = data;
         addMarkers(markersData);
+        // Обновляем метку фильтра после загрузки данных
+        document.getElementById('statusLabel').innerText = `Все (${markersData.length})`;
+        document.getElementById('reklamaLabel').innerText = `Все (${markersData.length})`;
       })
       .catch(error => console.error('Ошибка загрузки данных:', error));
 
@@ -209,15 +212,17 @@
     }
 
     function getReklamaColor(reklama) {
-      switch (reklama.toLowerCase()) {
+      const rec = reklama.toLowerCase();
+      switch (rec) {
         case 'led': return '#FF0000';
         case 'lightbox': return '#0000FF';
-        case '(x) нет': return '#00FF00';
+        case '(x) нет':
+        case 'none': return '#00FF00';
         default: return '#000000';
       }
     }
 
-    function togglePanel(title, content, buttonId) {
+    function togglePanel(title, content) {
       const panel = document.getElementById('bottomPanel');
       const overlay = document.getElementById('overlay');
 
@@ -239,6 +244,25 @@
       panel.classList.remove('active');
       overlay.style.display = 'none';
     }
+
+    // Обработчик для кнопки Легенда
+    document.getElementById('legendToggle').addEventListener('click', () => {
+      togglePanel('Легенда', `
+        <div class="legend-section">
+          <div class="legend-title">Состояние</div>
+          <div class="legend-row"><div class="legend-icon" style="background-color: #00FF00;"></div> Работает</div>
+          <div class="legend-row"><div class="legend-icon" style="background-color: #FF0000;"></div> Не работает</div>
+          <div class="legend-row"><div class="legend-icon" style="background-color: #AAAAAA;"></div> Снят</div>
+          <div class="legend-row"><div class="legend-icon" style="background-color: #555555;"></div> Демонтирован</div>
+        </div>
+        <div class="legend-section">
+          <div class="legend-title">Реклама</div>
+          <div class="legend-row"><div class="legend-border-icon" style="border-color: #FF0000;"></div> LED</div>
+          <div class="legend-row"><div class="legend-border-icon" style="border-color: #0000FF;"></div> Lightbox</div>
+          <div class="legend-row"><div class="legend-border-icon" style="border-color: #00FF00;"></div> (X) Нет / None</div>
+        </div>
+      `);
+    });
 
     document.getElementById('statusToggle').addEventListener('click', () => {
       togglePanel('Состояние', `
@@ -271,7 +295,7 @@
           <button onclick="filterReklama('все')">Все</button>
           <button onclick="filterReklama('led')">LED</button>
           <button onclick="filterReklama('lightbox')">Lightbox</button>
-          <button onclick="filterReklama('(x) нет')">(X) Нет</button>
+          <button onclick="filterReklama('(x) нет')">(X) Нет / None</button>
         </div>
       `);
     });
@@ -280,6 +304,11 @@
       let filtered;
       if (reklama === 'все') {
         filtered = markersData;
+      } else if (reklama === '(x) нет') {
+        filtered = markersData.filter(marker => {
+          const rec = marker.reklama.toLowerCase();
+          return rec === '(x) нет' || rec === 'none';
+        });
       } else {
         filtered = markersData.filter(marker => marker.reklama.toLowerCase() === reklama);
       }
@@ -290,8 +319,8 @@
     }
 
     function resetOtherFilters(current) {
-      if (current !== 'statusToggle') document.getElementById('statusLabel').innerText = 'Все (205)';
-      if (current !== 'reklamaToggle') document.getElementById('reklamaLabel').innerText = 'Все (205)';
+      if (current !== 'statusToggle') document.getElementById('statusLabel').innerText = `Все (${markersData.length})`;
+      if (current !== 'reklamaToggle') document.getElementById('reklamaLabel').innerText = `Все (${markersData.length})`;
     }
   </script>
 </body>
