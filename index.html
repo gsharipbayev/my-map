@@ -1,133 +1,481 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html>
 <head>
   <meta charset="utf-8"/>
-  <title>Карта Листовки (Sheets + Apps Script)</title>
+  <title>Leaflet Map (Sheets + Apps Script)</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"/>
   <style>
-    html, body { margin: 0; padding: 0; height: 100%; }
-
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+    }
     /* Верхняя панель поиска */
     #topSearchBar {
-      position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
-      z-index: 1002; background: rgba(255, 255, 255, 0.9);
-      padding: 10px; border-radius: 8px;
+      position: fixed;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1002;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 10px;
+      border-radius: 8px;
       box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-      display: flex; gap: 5px; align-items: center;
+      display: flex;
+      gap: 5px;
+      align-items: center;
     }
-    #searchInput { width: 300px; padding: 5px 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 5px; }
-    #searchBtn { font-size: 16px; padding: 5px 10px; cursor: pointer; border: none; background: #007BFF; color: white; border-radius: 5px; }
-
-    /* Карта */
-    #map { width: 100%; height: 100%; z-index: 0; }
-
-    /* Нижние кнопки */
+    #searchInput {
+      width: 300px;
+      padding: 5px 10px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+    #searchBtn {
+      font-size: 16px;
+      padding: 5px 10px;
+      cursor: pointer;
+      border: none;
+      background: #007BFF;
+      color: white;
+      border-radius: 5px;
+    }
+    #map {
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+    }
     .control-buttons {
-      position: absolute; bottom: 20px; left: 50%;
-      transform: translateX(-50%); display: flex; gap: 10px; z-index: 1001;
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 10px;
+      z-index: 1001;
     }
     .btn {
-      padding: 15px 25px; background-color: #007BFF; color: white;
-      border: none; border-radius: 8px; font-size: 16px; cursor: pointer;
-      transition: background-color 0.3s; min-width: 150px; text-align: center;
+      padding: 15px 25px;
+      background-color: #007BFF;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+      min-width: 150px;
+      text-align: center;
     }
-    .btn:hover { background-color: #0056b3; }
-    .btn span { display: block; font-size: 12px; color: #D1E8FF; margin-top: 5px; }
-
-    /* Панель легенды и фильтров */
+    .btn:hover {
+      background-color: #0056b3;
+    }
+    .btn span {
+      display: block;
+      font-size: 12px;
+      color: #D1E8FF;
+      margin-top: 5px;
+    }
+    .overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      display: none;
+      z-index: 1000;
+    }
     .bottom-panel {
-      position: fixed; bottom: -100%; left: 50%; transform: translateX(-50%);
-      width: 90%; max-width: 500px; background-color: #fff;
-      border-radius: 15px 15px 0 0; padding: 20px;
+      position: fixed;
+      bottom: -100%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 90%;
+      max-width: 500px;
+      background-color: #fff;
+      border-radius: 15px 15px 0 0;
+      font-family: sans-serif;
+      font-size: 16px;
+      padding: 20px;
       box-shadow: 0 -2px 15px rgba(0, 0, 0, 0.3);
-      transition: bottom 0.4s ease-in-out; z-index: 1002;
+      transition: bottom 0.4s ease-in-out;
+      z-index: 1002;
     }
-    .bottom-panel.active { bottom: 10%; }
-    .legend-title { font-weight: bold; margin-bottom: 5px; }
-    .legend-icon { width: 20px; height: 20px; display: inline-block; border-radius: 50%; border: 1px solid black; }
-    .filter-buttons { display: flex; flex-wrap: wrap; gap: 10px; }
+    .bottom-panel.active {
+      bottom: 10%;
+    }
+    .panel-title {
+      font-size: 20px;
+      font-weight: bold;
+      color: #000;
+      margin-bottom: 10px;
+    }
+    .legend-container, .filter-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .legend-section {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .legend-title {
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+    .legend-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .legend-icon {
+      width: 20px;
+      height: 20px;
+      display: inline-block;
+      border-radius: 50%;
+      border: 1px solid black;
+    }
     .filter-buttons button {
-      padding: 10px 15px; background-color: #007BFF; color: white;
-      border: none; border-radius: 8px; font-size: 14px; cursor: pointer;
+      padding: 10px 15px;
+      background-color: #007BFF;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
       transition: background-color 0.3s;
     }
-    .filter-buttons button:hover { background-color: #0056b3; }
+    .filter-buttons button:hover {
+      background-color: #0056b3;
+    }
   </style>
 </head>
 <body>
+  <!-- Верхняя панель поиска -->
   <div id="topSearchBar">
-    <input type="text" id="searchInput" placeholder="Поиск по ID Табло или Названию остановки">
+    <input type="text" id="searchInput" placeholder="Поиск по ID Табло или Название остановки">
     <button id="searchBtn">🔍</button>
   </div>
   <div id="map"></div>
   <div class="control-buttons">
     <button class="btn" id="legendToggle">Легенда</button>
-    <button class="btn" id="statusToggle">Состояние <span id="statusLabel">Все</span></button>
-    <button class="btn" id="reklamaToggle">Реклама <span id="reklamaLabel">Все</span></button>
-    <button class="btn" id="planToggle">План <span id="planLabel">Все</span></button>
+    <button class="btn" id="statusToggle">Состояние <span id="statusLabel">Все (205)</span></button>
+    <button class="btn" id="reklamaToggle">Реклама <span id="reklamaLabel">Все (205)</span></button>
+    <button class="btn" id="planToggle">План <span id="planLabel">Все (205)</span></button>
   </div>
-  <div class="bottom-panel" id="bottomPanel"></div>
-
+  <div class="overlay" id="overlay"></div>
+  <div class="bottom-panel" id="bottomPanel">
+    <div class="panel-title" id="panelTitle">Легенда</div>
+    <div id="panelContent" class="legend-container"></div>
+  </div>
+  
   <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
   <script>
+    // Инициализация карты
     const map = L.map('map').setView([51.09, 71.45], 11);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
-
-    let markersData = [], markers = [], selectedPlanMonths = [];
-
-    // 🎨 Цвета "Плана"
+    
+    // Данные с таблицы
+    let markersData = [];
+    // Текущий режим: "status" (состояние), "reklama" (реклама), "plan" (накопительный план), "search" (поиск)
+    let currentMode = 'status';
+    
+    // Накопительный фильтр по «Плану» (столбец U). 
+    // Массив выбранных месяцев и словарь цветов для каждого месяца.
+    let selectedPlanMonths = [];
+    const planMonths = ["Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
+    // Все месяцы в одной гамме (от светлого к тёмному синему):
     const planColors = {
-        'март': '#cce5ff', 'апрель': '#99ccff', 'май': '#66b3ff',
-        'июнь': '#3399ff', 'июль': '#0080ff', 'август': '#0066cc',
-        'сентябрь': '#0052a3', 'октябрь': '#003d7a', 'ноябрь': '#002952',
-        'декабрь': '#001429', 'нет плана': '#CCCCCC'
+      'март': '#cce5ff',
+      'апрель': '#99ccff',
+      'май': '#66b3ff',
+      'июнь': '#3399ff',
+      'июль': '#0080ff',
+      'август': '#0066cc',
+      'сентябрь': '#0052a3',
+      'октябрь': '#003d7a',
+      'ноябрь': '#002952',
+      'декабрь': '#001429'
     };
-
+    
     function getPlanColor(plan) {
-        return planColors[plan.toLowerCase().trim()] || planColors['нет плана'];
+      if (!plan) return "#CCCCCC";
+      let key = plan.toLowerCase().trim();
+      return planColors[key] || "#CCCCCC";
     }
-
+    
+    // Статус (столбец Q): сохраняем как есть
     function getStatusColor(status) {
-        switch (status.toLowerCase().trim()) {
-            case 'работает': return '#00FF00';
-            case 'не работает': return '#FF0000';
-            case 'снят табло': return '#D3D3D3';
-            case 'демонтирован': return '#555555';
-            default: return '#FFFFFF';
-        }
+      const s = (status || "").toLowerCase().trim();
+      switch (s) {
+        case 'работает':       return '#00FF00';
+        case 'не работает':     return '#FF0000';
+        case 'снят':
+        case 'снят табло':     return '#D3D3D3';
+        case 'демонтирован':    return '#555555';
+        default:                return '#FFFFFF';
+      }
     }
-
+    
+    // Реклама (столбец R): новые яркие цвета
     function getReklamaColor(reklama) {
-        switch (reklama.toLowerCase().trim()) {
-            case 'led': return '#FFA500';
-            case 'lightbox': return '#800080';
-            case 'нет': return '#00FFFF';
-            default: return '#000000';
-        }
+      let rec = (reklama || "").toLowerCase().replace(/\s/g, '');
+      switch (rec) {
+        case 'led':        return '#FFA500'; // ярко-оранжевый
+        case 'lightbox':   return '#800080'; // фиолетовый
+        case 'нет':
+        case 'x':
+        case '(x)нет':
+        case 'none':
+        case 'xнет':       return '#00FFFF'; // бирюзовый
+        default:           return '#000000'; // чёрный (если неизвестно)
+      }
     }
-
+    
+    // Определяем цвет маркера в зависимости от режима
+    function getMarkerColor(marker) {
+      if (currentMode === 'status') {
+        return getStatusColor(marker.status);
+      } else if (currentMode === 'reklama') {
+        return getReklamaColor(marker.reklama);
+      } else if (currentMode === 'plan') {
+        return getPlanColor(marker.plan);
+      } else if (currentMode === 'search') {
+        // В режиме поиска для наглядности оставим цвета «Статуса»
+        return getStatusColor(marker.status);
+      }
+      return '#FFFFFF';
+    }
+    
+    // Храним все объекты Leaflet-маркеров
+    let markers = [];
+    
+    // Функция добавления маркеров
     function addMarkers(data) {
-        clearMarkers();
-        data.forEach(marker => {
-            const color = getPlanColor(marker.plan);
-            const html = `<div style="background-color: ${color}; border: 1px solid black; width: 20px; height: 20px; border-radius:50%;"></div>`;
-            const icon = L.divIcon({ className: 'custom-icon', html: html });
-            const mapMarker = L.marker([marker.lat, marker.lng], { icon: icon }).addTo(map);
-            mapMarker.bindPopup(`<strong>${marker.stop || 'Остановка не указана'}</strong><br>ID: ${marker.id}`);
-            markers.push(mapMarker);
-        });
+      clearMarkers();
+      data.forEach(marker => {
+        const color = getMarkerColor(marker);
+        // Форма определяется по столбцу M (если содержит "медиаборд" – квадрат, иначе круг)
+        let shapeStyle = "";
+        if (marker.tablo && marker.tablo.toLowerCase().includes("медиаборд")) {
+          shapeStyle = "border-radius:0%;";
+        } else {
+          shapeStyle = "border-radius:50%;";
+        }
+        
+        const html = `<div style="background-color: ${color}; border: 1px solid black; width: 20px; height: 20px; ${shapeStyle}"></div>`;
+        const icon = L.divIcon({ className: 'custom-icon', html: html });
+        const mapMarker = L.marker([marker.lat, marker.lng], { icon: icon }).addTo(map);
+        
+        // Popup (подсказка), поля меняйте под свои названия, если отличаются
+        let popupContent = `
+          <strong>${marker.stopName || marker.stop || 'Остановка не указана'}</strong><br>
+          ID Остановки: ${marker.stopId || marker.id || 'не указан'}<br>
+          Улица: ${marker.street || 'не указана'}<br>
+          Направление: ${marker.direction || 'не указано'}<br>
+          Район: ${marker.district || 'не указан'}<br>
+          Табло: ${marker.tablo || 'не указано'}<br>
+          Статус: ${marker.status || 'не указан'}<br>
+          Реклама: ${marker.reklama || 'не указана'}<br>
+          План: ${marker.plan || 'не указан'}
+        `;
+        mapMarker.bindPopup(popupContent);
+        markers.push(mapMarker);
+      });
     }
-
+    
+    // Удалить все маркеры с карты
     function clearMarkers() {
-        markers.forEach(marker => map.removeLayer(marker));
-        markers = [];
+      markers.forEach(marker => map.removeLayer(marker));
+      markers = [];
     }
-
-    fetch('https://script.google.com/macros/s/.../exec')
+    
+    // Загружаем данные из Google Apps Script
+    fetch('https://script.google.com/macros/s/AKfycbw02IfURjZsCIZsckiRYKt_kawJ4OlazkNILhw4cGwSj-9cdAXzbP6AtNWWr3zNFnky/exec')
       .then(response => response.json())
-      .then(data => { markersData = data; addMarkers(markersData); })
+      .then(data => {
+        markersData = data;
+        addMarkers(markersData);
+        // Обновляем счётчики в кнопках
+        document.getElementById('statusLabel').innerText = `Все (${markersData.length})`;
+        document.getElementById('reklamaLabel').innerText = `Все (${markersData.length})`;
+        document.getElementById('planLabel').innerText = `Все (${markersData.length})`;
+      })
       .catch(error => console.error('Ошибка загрузки данных:', error));
-
+    
+    /* Панель управления (overlay) */
+    function togglePanel(title, content) {
+      const panel = document.getElementById('bottomPanel');
+      const overlay = document.getElementById('overlay');
+      if (panel.classList.contains('active') && document.getElementById('panelTitle').innerText === title) {
+        closePanel();
+      } else {
+        document.getElementById('panelTitle').innerText = title;
+        document.getElementById('panelContent').innerHTML = content;
+        panel.classList.add('active');
+        overlay.style.display = 'block';
+      }
+      overlay.addEventListener('click', closePanel);
+    }
+    function closePanel() {
+      const panel = document.getElementById('bottomPanel');
+      const overlay = document.getElementById('overlay');
+      panel.classList.remove('active');
+      overlay.style.display = 'none';
+    }
+    
+    // Кнопка "Легенда"
+    document.getElementById('legendToggle').addEventListener('click', () => {
+      // Выводим все разделы: Состояние, Реклама, План (синяя гамма)
+      togglePanel('Легенда', `
+        <div class="legend-section">
+          <div class="legend-title">Состояние</div>
+          <div class="legend-row"><div class="legend-icon" style="background-color: #00FF00;"></div> Работает</div>
+          <div class="legend-row"><div class="legend-icon" style="background-color: #FF0000;"></div> Не работает</div>
+          <div class="legend-row"><div class="legend-icon" style="background-color: #D3D3D3;"></div> Снят табло</div>
+          <div class="legend-row"><div class="legend-icon" style="background-color: #555555;"></div> Демонтирован</div>
+        </div>
+        <div class="legend-section">
+          <div class="legend-title">Реклама</div>
+          <div class="legend-row"><div class="legend-icon" style="background-color: #FFA500;"></div> LED</div>
+          <div class="legend-row"><div class="legend-icon" style="background-color: #800080;"></div> Lightbox</div>
+          <div class="legend-row"><div class="legend-icon" style="background-color: #00FFFF;"></div> Нет</div>
+        </div>
+        <div class="legend-section">
+          <div class="legend-title">План</div>
+          ${planMonths.map(m => `
+            <div class="legend-row">
+              <div class="legend-icon" style="background-color: ${getPlanColor(m)};"></div> ${m}
+            </div>`).join('')}
+        </div>
+      `);
+    });
+    
+    // Фильтр по Состоянию (столбец Q)
+    document.getElementById('statusToggle').addEventListener('click', () => {
+      togglePanel('Состояние', `
+        <div class="filter-buttons">
+          <button onclick="filterStatus('все')">Все</button>
+          <button onclick="filterStatus('работает')">Работает</button>
+          <button onclick="filterStatus('не работает')">Не работает</button>
+          <button onclick="filterStatus('снят табло')">Снят табло</button>
+          <button onclick="filterStatus('демонтирован')">Демонтирован</button>
+        </div>
+      `);
+    });
+    function filterStatus(status) {
+      currentMode = 'status';
+      let filtered;
+      if (status === 'все') {
+        filtered = markersData;
+      } else {
+        filtered = markersData.filter(marker => {
+          return (marker.status || "").toLowerCase().trim() === status;
+        });
+      }
+      addMarkers(filtered);
+      closePanel();
+      document.getElementById('statusLabel').innerText = `${status.charAt(0).toUpperCase() + status.slice(1)} (${filtered.length})`;
+    }
+    
+    // Фильтр по Рекламе (столбец R)
+    document.getElementById('reklamaToggle').addEventListener('click', () => {
+      togglePanel('Реклама', `
+        <div class="filter-buttons">
+          <button onclick="filterReklama('все')">Все</button>
+          <button onclick="filterReklama('led')">LED</button>
+          <button onclick="filterReklama('lightbox')">Lightbox</button>
+          <button onclick="filterReklama('нет')">Нет</button>
+        </div>
+      `);
+    });
+    function filterReklama(reklama) {
+      currentMode = 'reklama';
+      let filtered;
+      if (reklama === 'все') {
+        filtered = markersData;
+      } else if (reklama === 'нет') {
+        filtered = markersData.filter(marker => {
+          let rec = (marker.reklama || "").toLowerCase().replace(/\s/g, '');
+          return rec === 'нет' || rec === 'x' || rec === '(x)нет' || rec === 'none' || rec === 'xнет';
+        });
+      } else {
+        filtered = markersData.filter(marker => {
+          return (marker.reklama || "").toLowerCase().replace(/\s/g, '') === reklama;
+        });
+      }
+      addMarkers(filtered);
+      closePanel();
+      document.getElementById('reklamaLabel').innerText = `${reklama.toUpperCase()} (${filtered.length})`;
+    }
+    
+    // Фильтр по Плану (столбец U) – накопительный
+    document.getElementById('planToggle').addEventListener('click', () => {
+      showPlanPanel();
+    });
+    
+    function showPlanPanel() {
+      let content = `<div class="filter-buttons">`;
+      planMonths.forEach(month => {
+        let style = selectedPlanMonths.includes(month) ? 'style="background-color:#555555;"' : '';
+        content += `<button onclick="togglePlanMonth('${month}')" ${style}>${month}</button>`;
+      });
+      content += `<button onclick="clearPlanFilter()">Очистить</button>`;
+      content += `</div>`;
+      togglePanel('План', content);
+    }
+    function togglePlanMonth(month) {
+      if (selectedPlanMonths.includes(month)) {
+        selectedPlanMonths = selectedPlanMonths.filter(m => m !== month);
+      } else {
+        selectedPlanMonths.push(month);
+      }
+      filterPlan();
+      showPlanPanel(); // обновляем панель для визуальной индикации
+    }
+    function clearPlanFilter() {
+      selectedPlanMonths = [];
+      filterPlan();
+      showPlanPanel();
+    }
+    function filterPlan() {
+      currentMode = 'plan';
+      let filtered;
+      if (selectedPlanMonths.length === 0) {
+        filtered = markersData;
+      } else {
+        filtered = markersData.filter(marker => {
+          // marker.plan должен содержать название месяца (например, "Март")
+          return selectedPlanMonths.includes(marker.plan);
+        });
+      }
+      addMarkers(filtered);
+      document.getElementById('planLabel').innerText = 
+        selectedPlanMonths.length === 0 
+          ? `Все (${markersData.length})` 
+          : `${selectedPlanMonths.join('+')} (${filtered.length})`;
+    }
+    
+    // Поиск по ID Табло или Названию остановки
+    document.getElementById('searchBtn').addEventListener('click', filterSearch);
+    document.getElementById('searchInput').addEventListener('keypress', function(e){
+      if (e.key === 'Enter'){
+        filterSearch();
+      }
+    });
+    function filterSearch() {
+      const query = document.getElementById('searchInput').value.toLowerCase().trim();
+      currentMode = 'search';
+      const filtered = markersData.filter(marker => {
+        const stopName = (marker.stopName || marker.stop || "").toLowerCase();
+        const stopId = (marker.stopId || marker.id || "").toString().toLowerCase();
+        // Проверяем, встречается ли запрос в названии остановки или ID
+        return stopName.includes(query) || stopId.includes(query);
+      });
+      addMarkers(filtered);
+    }
   </script>
 </body>
 </html>
