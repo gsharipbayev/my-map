@@ -1,127 +1,56 @@
-const map = L.map('map').setView([51.09, 71.45], 11);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 19
-}).addTo(map);
+setTimeout(() => {
+  const map = L.map('map').setView([51.09, 71.45], 11);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+  
+  let markersData = [];
+  let markers = [];
+  let uniqueMonths = [];
 
-let markersData = [];
-let markers = [];
-let uniqueMonths = [];
+  fetch('https://script.google.com/macros/s/AKfycbw02IfURjZsCIZsckiRYKt_kawJ4OlazkNILhw4cGwSj-9cdAXzbP6AtNWWr3zNFnky/exec')
+    .then(response => response.json())
+    .then(data => {
+      if (!Array.isArray(data)) {
+        console.error('Ошибка: получены некорректные данные');
+        return;
+      }
+      markersData = data;
+      addMarkers(markersData);
+    })
+    .catch(error => console.error('Ошибка загрузки данных:', error));
 
-fetch('https://script.google.com/macros/s/AKfycbw02IfURjZsCIZsckiRYKt_kawJ4OlazkNILhw4cGwSj-9cdAXzbP6AtNWWr3zNFnky/exec')
-  .then(response => response.json())
-  .then(data => {
-    if (!Array.isArray(data)) {
-      console.error('Ошибка: получены некорректные данные');
-      return;
-    }
-    markersData = data;
-    extractUniqueMonths();
-    addMarkers(markersData);
-    createPlanButtons();
-  })
-  .catch(error => console.error('Ошибка загрузки данных:', error));
-
-function addMarkers(data) {
-  clearMarkers();
-  data.forEach(marker => {
-    if (!marker.lat || !marker.lng) return;
-    const icon = L.divIcon({
-      className: 'custom-icon',
-      html: `<div style="background-color: ${getStatusColor(marker.status)}; border: 6px solid ${getReklamaColor(marker.reklama)}; width: 20px; height: 20px; border-radius: 50%;"></div>`
+  function addMarkers(data) {
+    data.forEach(marker => {
+      if (!marker.lat || !marker.lng) return;
+      const icon = L.divIcon({
+        className: 'custom-icon',
+        html: `<div style="background-color: ${getStatusColor(marker.status)}; border: 6px solid ${getReklamaColor(marker.reklama)}; width: 20px; height: 20px; border-radius: 50%;"></div>`
+      });
+      L.marker([marker.lat, marker.lng], { icon: icon }).addTo(map);
     });
-    const mapMarker = L.marker([marker.lat, marker.lng], { icon: icon }).addTo(map);
-    markers.push(mapMarker);
-  });
-}
+  }
 
-function clearMarkers() {
-  markers.forEach(marker => map.removeLayer(marker));
-  markers = [];
-}
+  function getStatusColor(status) {
+    const statusColors = {
+      'работает': '#00FF00',
+      'не работает': '#FF0000',
+      'снят': '#AAAAAA',
+      'снят табло': '#D3D3D3',
+      'демонтирован': '#555555',
+      'x нет': '#808080',
+      'нет': '#808080'
+    };
+    return statusColors[status?.toLowerCase()] || '#FFFFFF';
+  }
 
-function getStatusColor(status) {
-  const statusColors = {
-    'работает': '#00FF00',
-    'не работает': '#FF0000',
-    'снят': '#AAAAAA',
-    'снят табло': '#D3D3D3',
-    'демонтирован': '#555555',
-    'x нет': '#808080',
-    'нет': '#808080'
-  };
-  return statusColors[status.toLowerCase()] || '#FFFFFF';
-}
+  function getReklamaColor(reklama) {
+    const reklamaColors = {
+      'led': '#FF0000',
+      'lightbox': '#0000FF',
+      '(x) нет': '#00FF00',
+      'нет': '#808080',
+      'x нет': '#808080'
+    };
+    return reklamaColors[reklama?.toLowerCase()] || '#000000';
+  }
 
-function getReklamaColor(reklama) {
-  const reklamaColors = {
-    'led': '#FF0000',
-    'lightbox': '#0000FF',
-    '(x) нет': '#00FF00',
-    'нет': '#808080',
-    'x нет': '#808080'
-  };
-  return reklamaColors[reklama.toLowerCase()] || '#000000';
-}
-
-function extractUniqueMonths() {
-  uniqueMonths = [...new Set(markersData.map(marker => marker.month).filter(m => m))].sort();
-}
-
-function createPlanButtons() {
-  const planToggle = document.getElementById('searchToggle');
-  planToggle.innerText = 'План';
-  planToggle.removeEventListener('click', togglePanel);
-  planToggle.addEventListener('click', () => {
-    togglePanel('Фильтр по месяцам', generatePlanButtons());
-  });
-}
-
-function generatePlanButtons() {
-  return `<div class="filter-buttons">
-    ${uniqueMonths.map(month => `<button onclick="filterPlan('${month}')">${month}</button>`).join('')}
-  </div>`;
-}
-
-function filterPlan(month) {
-  const filtered = markersData.filter(marker => marker.month === month);
-  addMarkers(filtered);
-  closePanel();
-  updateLegend();
-}
-
-function updateLegend() {
-  document.getElementById('panelContent').innerHTML = `<div class="legend-container">
-    ${uniqueMonths.map(month => `<div class="legend-row"><div class="legend-icon" style="background-color:${getPlanColor(month)}"></div>${month}</div>`).join('')}
-  </div>`;
-}
-
-function getPlanColor(month) {
-  const colors = ['#FF5733', '#33FF57', '#3357FF', '#FFFF33', '#FF33A8'];
-  return colors[uniqueMonths.indexOf(month) % colors.length];
-}
-
-function togglePanel(title, content) {
-  const panel = document.getElementById('bottomPanel');
-  const overlay = document.getElementById('overlay');
-  document.getElementById('panelTitle').innerText = title;
-  document.getElementById('panelContent').innerHTML = content;
-  panel.classList.add('active');
-  overlay.style.display = 'block';
-  overlay.addEventListener('click', closePanel);
-}
-
-function closePanel() {
-  document.getElementById('bottomPanel').classList.remove('active');
-  document.getElementById('overlay').style.display = 'none';
-}
-
-document.getElementById('legendToggle').addEventListener('click', () => {
-  togglePanel('Легенда', updateLegend());
-});
-
-const searchToggle = document.getElementById('searchToggle');
-searchToggle.innerText = 'План';
-searchToggle.removeEventListener('click', togglePanel);
-searchToggle.addEventListener('click', () => {
-  togglePanel('Фильтр по месяцам', generatePlanButtons());
-});
+}, 2000);
