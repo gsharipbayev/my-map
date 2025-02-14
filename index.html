@@ -335,6 +335,7 @@
     let selectedReklamas = [];
     let selectedPlans    = [];
 
+    // МАССИВЫ ВСЕХ ВОЗМОЖНЫХ ЗНАЧЕНИЙ (если они не изменялись)
     const allStatuses = ["работает","не работает","снят табло","демонтирован"];
     const allReklamas = ["led","lightbox","нет"];
     const planMonths = [
@@ -354,24 +355,28 @@
 
     /***********************************************************
      * 4) ПРЕОБРАЗОВАНИЕ ОДНОЙ СТРОКИ (МАССИВА) -> ОБЪЕКТ
-     *    ПОДСТАВЬТЕ ВАШИ ИНДЕКСЫ КОЛОНОК!
+     *    ВАЖНО: СЛЕДИТЕ ЗА ИНДЕКСАМИ!!!
      ***********************************************************/
     function transformRowToObj(row) {
+      // Чтобы не «упасть», если в строке меньше нужных ячеек:
+      // (Допустим, нам нужно минимум 21 ячейку, чтобы достать индекс 20)
+      // Можно поставить проверку длины row или условный оператор: row[i] ? row[i] : ''
       return {
-        stopName:  row[2]  ? row[2].toString().trim() : "",
-        direction: row[3]  ? row[3].toString().trim() : "",
-        district:  row[4]  ? row[4].toString().trim() : "",
+        stopName:  (row[2]  || "").toString().trim(),
+        direction: (row[3]  || "").toString().trim(),
+        district:  (row[4]  || "").toString().trim(),
         lat:       row[5]  ? parseFloat(row[5]) : 0,
         lng:       row[6]  ? parseFloat(row[6]) : 0,
-        stopId:    row[7]  ? row[7].toString().trim() : "",
+        stopId:    (row[7]  || "").toString().trim(),
+        // Обязательно .toLowerCase() для сравнения статусов, чтобы не было проблем с регистром
         status:    row[16] ? row[16].toString().toLowerCase().trim() : "",
-        reklama:   row[17] ? row[17].toString().trim() : "",
-        plan:      row[20] ? row[20].toString().trim() : "",
+        reklama:   (row[17] || "").toString().toLowerCase().trim(),
+        plan:      (row[20] || "").toString().trim(),
       };
     }
 
     /***********************************************************
-     * 5) ЦВЕТ ОПРЕДЕЛЯЕМ ПО СТАТУСУ
+     * 5) ЦВЕТ ПО СТАТУСУ (пример)
      ***********************************************************/
     function getStatusColor(status) {
       switch (status) {
@@ -383,6 +388,7 @@
         default:               return "#FFFFFF";
       }
     }
+    // Если хотите окрашивать маркер по рекламе, нужно другую логику. Пока — только статус:
     function getMarkerColor(item) {
       return getStatusColor(item.status);
     }
@@ -394,16 +400,14 @@
       clearMarkers();
       data.forEach(item => {
         const color = getMarkerColor(item);
-        let shapeStyle = "border-radius:50%;";
-        // if (item.tablo && item.tablo.toLowerCase().includes("медиаборд")) { shapeStyle="..."}
         const iconSize = 20;
         const html = `
           <div style="
-            width:${iconSize}px; 
-            height:${iconSize}px; 
+            width:${iconSize}px;
+            height:${iconSize}px;
             background-color:${color};
-            border:1px solid #000; 
-            ${shapeStyle}
+            border:1px solid #000;
+            border-radius:50%;
           "></div>
         `;
         const icon = L.divIcon({ html, iconSize: [iconSize, iconSize] });
@@ -432,22 +436,21 @@
      ***********************************************************/
     function applyCombinedFilter() {
       const filtered = markersData.filter(m => {
+        // берём статус, рекламу, план
         const st = m.status;
         let rec = (m.reklama || "").toLowerCase().replace(/\s/g, "");
+        // Преобразования "x", "none", "(x)нет" → "нет"
         if (["x","(x)нет","none","xнет"].includes(rec)) {
           rec = "нет";
         }
         const pl = m.plan;
 
         // 1) СТАТУС
-        const passStatus = (selectedStatuses.length === 0) ||
-          selectedStatuses.includes(st);
+        const passStatus = (selectedStatuses.length === 0) || selectedStatuses.includes(st);
         // 2) РЕКЛАМА
-        const passReklama = (selectedReklamas.length === 0) ||
-          selectedReklamas.includes(rec);
+        const passReklama = (selectedReklamas.length === 0) || selectedReklamas.includes(rec);
         // 3) ПЛАН
-        const passPlan = (selectedPlans.length === 0) ||
-          selectedPlans.includes(pl);
+        const passPlan = (selectedPlans.length === 0) || selectedPlans.includes(pl);
 
         return passStatus && passReklama && passPlan;
       });
@@ -464,9 +467,10 @@
      * 8) ОБНОВИТЬ ЦИФРЫ НА КНОПКАХ
      ***********************************************************/
     function updateLabels(count) {
-      document.getElementById("statusLabel").innerText = `(${count})`;
-      document.getElementById("reklamaLabel").innerText = `(${count})`;
-      document.getElementById("planLabel").innerText   = `(${count})`;
+      // Чтобы совпадало с версткой "Все (0)"
+      document.getElementById("statusLabel").innerText  = `Все (${count})`;
+      document.getElementById("reklamaLabel").innerText = `Все (${count})`;
+      document.getElementById("planLabel").innerText    = `Все (${count})`;
     }
 
     /***********************************************************
@@ -475,7 +479,10 @@
     fetch("https://script.google.com/macros/s/AKfycbw02IfURjZsCIZsckiRYKt_kawJ4OlazkNILhw4cGwSj-9cdAXzbP6AtNWWr3zNFnky/exec")
       .then(res => res.json())
       .then(rows => {
-        // rows - массив массивов (каждая строка - массив ячеек)
+        // Посмотреть, что реально возвращается
+        console.log("Данные из Apps Script:", rows);
+
+        // Предполагаем, что rows - массив массивов
         markersData = rows.map(r => transformRowToObj(r));
         addMarkers(markersData);
         updateLabels(markersData.length);
@@ -485,9 +492,11 @@
     /***********************************************************
      * 10) ОТКРЫТИЕ/ЗАКРЫТИЕ НИЖНЕЙ ПАНЕЛИ (ЛЕГЕНДА/ФИЛЬТРЫ)
      ***********************************************************/
+    const panel = document.getElementById("bottomPanel");
+    const overlay = document.getElementById("overlay");
+
     function togglePanel(title, content) {
-      const panel = document.getElementById("bottomPanel");
-      const overlay = document.getElementById("overlay");
+      // Если панель уже открыта с тем же заголовком – закрываем
       if (
         panel.classList.contains("active") &&
         document.getElementById("panelTitle").innerText === title
@@ -499,14 +508,14 @@
         panel.classList.add("active");
         overlay.style.display = "block";
       }
-      overlay.addEventListener("click", closePanel);
     }
     function closePanel() {
-      const panel = document.getElementById("bottomPanel");
-      const overlay = document.getElementById("overlay");
       panel.classList.remove("active");
       overlay.style.display = "none";
     }
+
+    // Один раз навешиваем событие на подложку, чтобы по клику закрывать
+    overlay.addEventListener("click", closePanel);
 
     /***********************************************************
      * 11) ЛЕГЕНДА
@@ -559,7 +568,7 @@
     document.getElementById("statusToggle").addEventListener("click", () => {
       let html = `<div class="filter-buttons">`;
       allStatuses.forEach(st => {
-        const isActive = selectedStatuses.includes(st) ? ' active' : '';
+        const isActive = selectedStatuses.includes(st) ? 'active' : '';
         html += `<button class="${isActive}" onclick="toggleStatus('${st}')">${st}</button>`;
       });
       html += `<button onclick="clearStatuses()">Очистить</button>`;
@@ -573,6 +582,7 @@
         selectedStatuses.push(st);
       }
       applyCombinedFilter();
+      // Перепоказать панель, чтобы обновить кнопки
       document.getElementById("statusToggle").click();
     };
     window.clearStatuses = function() {
@@ -587,7 +597,7 @@
     document.getElementById("reklamaToggle").addEventListener("click", () => {
       let html = `<div class="filter-buttons">`;
       allReklamas.forEach(r => {
-        const isActive = selectedReklamas.includes(r) ? ' active' : '';
+        const isActive = selectedReklamas.includes(r) ? 'active' : '';
         html += `<button class="${isActive}" onclick="toggleReklama('${r}')">${r}</button>`;
       });
       html += `<button onclick="clearReklamas()">Очистить</button>`;
@@ -615,7 +625,7 @@
     document.getElementById("planToggle").addEventListener("click", () => {
       let html = `<div class="filter-buttons">`;
       planMonths.forEach(m => {
-        const isActive = selectedPlans.includes(m) ? ' active' : '';
+        const isActive = selectedPlans.includes(m) ? 'active' : '';
         html += `<button class="${isActive}" onclick="togglePlan('${m}')">${m}</button>`;
       });
       html += `<button onclick="clearPlans()">Очистить</button>`;
@@ -649,9 +659,11 @@
     function doSearch() {
       const query = document.getElementById("searchInput").value.toLowerCase().trim();
       if (!query) {
+        // Пустой запрос – возвращаемся к текущему фильтру
         applyCombinedFilter();
         return;
       }
+      // Фильтруем markersData
       const filtered = markersData.filter(m => {
         const stopName = (m.stopName || "").toLowerCase();
         const stopId   = (m.stopId   || "").toLowerCase();
