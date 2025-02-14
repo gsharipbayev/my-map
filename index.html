@@ -510,32 +510,3 @@
   </script>
 </body>
 </html>
-
-    /***********************************************************
-     * 15) ПОИСК
-     ***********************************************************/
-    document.getElementById("searchBtn").addEventListener("click", doSearch);
-    document.getElementById("searchInput").addEventListener("keypress", e => {
-      if (e.key === "Enter") {
-        doSearch();
-      }
-    });
-    function doSearch() {
-      const query = document.getElementById("searchInput").value.toLowerCase().trim();
-      if (!query) {
-        // Пустой запрос – возвращаемся к текущему фильтру
-        applyCombinedFilter();
-        return;
-      }
-      // Фильтруем markersData
-      const filtered = markersData.filter(m => {
-        const stopName = (m.stopName || "").toLowerCase();
-        const stopId   = (m.stopId   || "").toLowerCase();
-        return stopName.includes(query) || stopId.includes(query);
-      });
-      addMarkers(filtered);
-      updateLabels(filtered.length);
-    }
-  </script>
-</body>
-</html>
