@@ -41,55 +41,54 @@
       margin-top: 70px; /* отодвигаем кнопки зума ниже, чтобы не загораживали панель */
     }
 
-    /* Верхняя панель поиска – растянута по ширине, но высота ~20% меньше */
+    /* Верхняя панель поиска – растянута по ширине, но уменьшена по высоте ~20% */
     #topSearchBar {
       position: fixed;
-      top: 0; /* прижать к самому верху */
+      top: 0; 
       left: 0;
       right: 0;
       z-index: 1002;
       display: flex;
-      justify-content: center;  /* центрируем содержимое */
+      justify-content: center;
       background: rgba(255, 255, 255, 0.9);
-      padding: 8px; /* уменьшили ~20% */
+      padding: 8px; /* ~20% меньше */
       box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
       gap: 8px;
       align-items: center;
     }
     #searchInput {
-      /* Растягиваем на большую часть экрана */
-      flex: 1;               /* занимает всё доступное пространство */
-      max-width: 600px;      /* ограничим, чтобы на очень широких экранах не было гигантского поля */
-      padding: 5px;          /* чуть уменьшили */
-      font-size: 15px;       /* уменьшили ~20% */
+      flex: 1;               
+      max-width: 600px;      
+      padding: 5px;          
+      font-size: 15px;       
       border: 1px solid #ccc;
       border-radius: 5px;
     }
     #searchBtn {
-      font-size: 14px;       /* чуть меньше */
-      padding: 5px 8px;      /* уменьшаем примерно на 20% */
+      font-size: 14px;       
+      padding: 5px 8px;      
       cursor: pointer;
       border: none;
       background: #007bff;
       color: white;
       border-radius: 5px;
-      flex-shrink: 0;        /* кнопка не сжимается */
+      flex-shrink: 0;        
     }
 
-    /* Кнопки снизу (Легенда/Состояние/Реклама/План) – «средний» размер */
+    /* Кнопки снизу (Легенда, Состояние, Реклама, План) – «средний» размер */
     .control-buttons {
       position: fixed;
       bottom: 10px;
       left: 50%;
       transform: translateX(-50%);
       display: flex;
-      gap: 6px; /* чуть больше, чем было (3), но меньше, чем старые 10 */
+      gap: 6px; 
       z-index: 1001;
     }
     .btn {
-      padding: 12px 18px;  /* промежуточный вариант */
-      font-size: 15px;     /* средний между 14 и 16 */
-      min-width: 120px;    /* чтобы они не были слишком узкими */
+      padding: 12px 18px; 
+      font-size: 15px;    
+      min-width: 120px;   
       background-color: #007bff;
       color: white;
       border: none;
@@ -146,7 +145,7 @@
       color: #333;
     }
 
-    /* Контейнер и кнопки внутри фильтров («Состояние», «Реклама», «План»), делаем красивее */
+    /* Контейнер и кнопки внутри фильтров («Состояние», «Реклама», «План») */
     .filter-buttons {
       display: flex;
       flex-wrap: wrap;
@@ -165,7 +164,7 @@
       background: #e6e6e6;
     }
 
-    /* Стили для Легенды */
+    /* Легенда */
     .legend-container {
       display: flex;
       flex-wrap: wrap;
@@ -196,7 +195,7 @@
     /* На маленьких экранах уменьшаем ещё */
     @media (max-width: 600px) {
       #searchInput {
-        max-width: 400px; /* ограничим, если экран совсем узкий */
+        max-width: 400px; 
         font-size: 14px;
       }
       #searchBtn {
@@ -238,9 +237,7 @@
 
   <!-- Кнопки снизу -->
   <div class="control-buttons">
-    <button class="btn" id="legendToggle">
-      Легенда
-    </button>
+    <button class="btn" id="legendToggle">Легенда</button>
     <button class="btn" id="statusToggle">
       Состояние <span id="statusLabel">Все (0)</span>
     </button>
@@ -259,14 +256,14 @@
     <div id="panelContent" class="legend-container"></div>
   </div>
 
-  <!-- Подключаем Leaflet + MarkerCluster -->
+  <!-- Подключение Leaflet + MarkerCluster -->
   <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 
   <script>
     /************************************************************
-      1) ИНИЦИАЛИЗАЦИЯ КАРТЫ
-    ************************************************************/
+     * 1) ИНИЦИАЛИЗАЦИЯ КАРТЫ
+     ************************************************************/
     const map = L.map("map").setView([51.09, 71.45], 11);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
@@ -277,8 +274,8 @@
     map.addLayer(markerClusterGroup);
 
     /************************************************************
-      2) ПЕРЕМЕННЫЕ, НАСТРОЙКИ ФИЛЬТРА
-    ************************************************************/
+     * 2) ПЕРЕМЕННЫЕ, НАСТРОЙКИ ФИЛЬТРА
+     ************************************************************/
     let markersData = [];
 
     // Накопительные фильтры
@@ -301,24 +298,26 @@
     };
 
     /************************************************************
-      3) ПРИНУДИТЕЛЬНО УСТАНАВЛИВАЕМ district=E, plan=U
-         (чтобы точно валидировалось на карте)
-    ************************************************************/
+     * 3) ПРИНУДИТЕЛЬНО УСТАНАВЛИВАЕМ district И plan
+       ИЗ СТОЛБЦОВ "Район" И "План"
+     ************************************************************/
     function fixDataFields(data) {
       return data.map(item => {
-        if (item.E) {
-          item.district = item.E;  // Перезаписываем район (игнорируем старое district)
+        // Если в JSON есть item["Район"], кладём в .district
+        if (item["Район"]) {
+          item.district = item["Район"];
         }
-        if (item.U) {
-          item.plan = item.U;      // Перезаписываем план (игнорируем старое plan)
+        // Если в JSON есть item["План"], кладём в .plan
+        if (item["План"]) {
+          item.plan = item["План"];
         }
         return item;
       });
     }
 
     /************************************************************
-      4) ФУНКЦИИ ОПРЕДЕЛЕНИЯ ЦВЕТОВ
-    ************************************************************/
+     * 4) ФУНКЦИИ ОПРЕДЕЛЕНИЯ ЦВЕТОВ
+     ************************************************************/
     function getPlanColor(plan) {
       if (!plan) return "#CCCCCC";
       const key = plan.toLowerCase().trim();
@@ -348,14 +347,14 @@
       }
     }
 
-    // В качестве примера маркер красим по статусу.
+    // Выбираем логику окраски. Для примера, пусть это будет статус:
     function getMarkerColor(m) {
       return getStatusColor(m.status);
     }
 
     /************************************************************
-      5) ФУНКЦИЯ ФИЛЬТРАЦИИ (НАКОПИТЕЛЬНОЙ)
-    ************************************************************/
+     * 5) ФУНКЦИЯ ФИЛЬТРАЦИИ (НАКОПИТЕЛЬНОЙ)
+     ************************************************************/
     function applyCombinedFilter() {
       const filtered = markersData.filter(m => {
         // СТАТУС
@@ -386,8 +385,8 @@
     }
 
     /************************************************************
-      6) ДОБАВЛЕНИЕ/УДАЛЕНИЕ МАРКЕРОВ
-    ************************************************************/
+     * 6) ДОБАВЛЕНИЕ/УДАЛЕНИЕ МАРКЕРОВ
+     ************************************************************/
     function addMarkers(data) {
       clearMarkers();
       data.forEach(item => {
@@ -433,11 +432,12 @@
     }
 
     /************************************************************
-      7) ЗАГРУЗКА ДАННЫХ ИЗ GOOGLE APPS SCRIPT
-    ************************************************************/
+     * 7) ЗАГРУЗКА ДАННЫХ ИЗ GOOGLE APPS SCRIPT
+     ************************************************************/
     fetch("https://script.google.com/macros/s/AKfycbw02IfURjZsCIZsckiRYKt_kawJ4OlazkNILhw4cGwSj-9cdAXzbP6AtNWWr3zNFnky/exec")
       .then(r => r.json())
       .then(data => {
+        // Подцепляем поля "Район" и "План"
         data = fixDataFields(data);
         markersData = data;
         addMarkers(markersData);
@@ -450,8 +450,8 @@
       .catch(e => console.error("Ошибка загрузки данных:", e));
 
     /************************************************************
-      8) ОТКРЫТИЕ/ЗАКРЫТИЕ НИЖНЕЙ ПАНЕЛИ (ЛЕГЕНДА/ФИЛЬТРЫ)
-    ************************************************************/
+     * 8) ОТКРЫТИЕ/ЗАКРЫТИЕ НИЖНЕЙ ПАНЕЛИ (ЛЕГЕНДА/ФИЛЬТРЫ)
+     ************************************************************/
     function togglePanel(title, content) {
       const panel = document.getElementById("bottomPanel");
       const overlay = document.getElementById("overlay");
@@ -476,10 +476,9 @@
     }
 
     /************************************************************
-      9) ЛЕГЕНДА
-    ************************************************************/
+     * 9) ЛЕГЕНДА
+     ************************************************************/
     document.getElementById("legendToggle").addEventListener("click", () => {
-      // Покажем легенду по всем трём категориям
       togglePanel(
         "Легенда",
         `
@@ -526,8 +525,8 @@
     });
 
     /************************************************************
-      10) НАКОПИТЕЛЬНЫЙ ФИЛЬТР "СОСТОЯНИЕ"
-    ************************************************************/
+     * 10) НАКОПИТЕЛЬНЫЙ ФИЛЬТР "СОСТОЯНИЕ"
+     ************************************************************/
     document.getElementById("statusToggle").addEventListener("click", () => {
       let html = `<div class="filter-buttons">`;
       allStatuses.forEach(st => {
@@ -554,8 +553,8 @@
     };
 
     /************************************************************
-      11) НАКОПИТЕЛЬНЫЙ ФИЛЬТР "РЕКЛАМА"
-    ************************************************************/
+     * 11) НАКОПИТЕЛЬНЫЙ ФИЛЬТР "РЕКЛАМА"
+     ************************************************************/
     document.getElementById("reklamaToggle").addEventListener("click", () => {
       let html = `<div class="filter-buttons">`;
       allReklamas.forEach(r => {
@@ -582,8 +581,8 @@
     };
 
     /************************************************************
-      12) НАКОПИТЕЛЬНЫЙ ФИЛЬТР "ПЛАН"
-    ************************************************************/
+     * 12) НАКОПИТЕЛЬНЫЙ ФИЛЬТР "ПЛАН"
+     ************************************************************/
     document.getElementById("planToggle").addEventListener("click", () => {
       let html = `<div class="filter-buttons">`;
       planMonths.forEach(m => {
@@ -610,8 +609,8 @@
     };
 
     /************************************************************
-      13) ПОИСК ПО ID / НАЗВАНИЮ ОСТАНОВКИ
-    ************************************************************/
+     * 13) ПОИСК ПО ID / НАЗВАНИЮ ОСТАНОВКИ
+     ************************************************************/
     document.getElementById("searchBtn").addEventListener("click", doSearch);
     document.getElementById("searchInput").addEventListener("keypress", function(e) {
       if (e.key === "Enter") {
@@ -621,7 +620,7 @@
     function doSearch() {
       const query = document.getElementById("searchInput").value.toLowerCase().trim();
       if (!query) {
-        // Пусто -> возвращаемся к накопительным фильтрам
+        // Пустой поиск -> вернуться к накопительным фильтрам
         applyCombinedFilter();
         return;
       }
