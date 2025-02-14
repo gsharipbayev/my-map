@@ -2,41 +2,43 @@
 <html>
 <head>
   <meta charset="utf-8"/>
+  <!-- Для мобильных устройств -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Leaflet Map (Sheets + Apps Script)</title>
-  
+
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"/>
-  
-  <!-- MarkerCluster CSS (если вы используете кластеризацию) -->
+
+  <!-- Подключаем MarkerCluster CSS (чтобы маркеры не перекрывались друг другом) -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
 
   <style>
+    /* Базовые стили на всю страницу */
     html, body {
       margin: 0;
       padding: 0;
       height: 100%;
       font-family: sans-serif;
-      font-size: 18px;
+      font-size: 18px; /* немного увеличенный шрифт для удобства на мобильных */
     }
-    
-    /* Сама карта */
+
+    /* Карта на весь экран */
     #map {
       width: 100%;
       height: 100%;
       z-index: 0;
     }
 
-    /* Смещение стандартных кнопок Leaflet чуть ниже, 
-       чтобы они не перекрывались панелью поиска */
+    /* Смещение стандартных кнопок (+/-) Leaflet вниз,
+       чтобы они не пересекались с панелью поиска. */
     .leaflet-top.leaflet-left {
-      margin-top: 70px; /* подберите нужное значение */
+      margin-top: 70px; /* при необходимости отрегулируйте */
     }
 
     /* Верхняя панель поиска */
     #topSearchBar {
-      position: fixed; /* всегда сверху (не прокручивается вместе с картой) */
+      position: fixed; /* остаётся сверху даже при прокрутке */
       top: 10px;
       left: 50%;
       transform: translateX(-50%);
@@ -48,8 +50,7 @@
       display: flex;
       gap: 5px;
       align-items: center;
-      /* немного ограничим максимальную ширину, чтобы на мобильных не растягивалось */
-      max-width: 90%;
+      max-width: 90%; /* на узких экранах панель не будет выходить за край */
     }
     #searchInput {
       width: 300px;
@@ -68,7 +69,7 @@
       border-radius: 5px;
     }
 
-    /* Кнопки внизу */
+    /* Блок кнопок снизу (Легенда/Состояние/Реклама/План) */
     .control-buttons {
       position: absolute;
       bottom: 20px;
@@ -100,7 +101,7 @@
       margin-top: 5px;
     }
 
-    /* Полупрозрачная подложка */
+    /* Задний полупрозрачный фон для нижней панели */
     .overlay {
       position: fixed;
       top: 0;
@@ -112,7 +113,7 @@
       z-index: 1000;
     }
 
-    /* Нижняя панель */
+    /* Нижняя панель (Легенда или выбор фильтра) */
     .bottom-panel {
       position: fixed;
       bottom: -100%;
@@ -167,7 +168,7 @@
     /* Адаптивные стили под небольшие экраны */
     @media (max-width: 600px) {
       #searchInput {
-        width: 180px; /* уменьшим поле на мобильных */
+        width: 180px; /* уменьшаем поле на мобильных */
       }
       .btn {
         padding: 10px 15px;
@@ -197,50 +198,380 @@
   <!-- Кнопки фильтра внизу -->
   <div class="control-buttons">
     <button class="btn" id="legendToggle">Легенда</button>
-    <button class="btn" id="statusToggle">Состояние <span id="statusLabel">Все (205)</span></button>
-    <button class="btn" id="reklamaToggle">Реклама <span id="reklamaLabel">Все (205)</span></button>
-    <button class="btn" id="planToggle">План <span id="planLabel">Все (205)</span></button>
+    <button class="btn" id="statusToggle">Состояние <span id="statusLabel">Все (0)</span></button>
+    <button class="btn" id="reklamaToggle">Реклама <span id="reklamaLabel">Все (0)</span></button>
+    <button class="btn" id="planToggle">План <span id="planLabel">Все (0)</span></button>
   </div>
 
-  <!-- Подложка и нижняя панель -->
+  <!-- Подложка и нижняя панель (для легенды и фильтров) -->
   <div class="overlay" id="overlay"></div>
   <div class="bottom-panel" id="bottomPanel">
     <div class="panel-title" id="panelTitle">Легенда</div>
     <div id="panelContent" class="legend-container"></div>
   </div>
 
-  <!-- Подключение Leaflet и, при необходимости, Leaflet.markercluster -->
+  <!-- Подключаем Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+  <!-- Подключаем MarkerCluster JS (если используете кластеризацию) -->
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 
   <script>
-    // Инициализация карты
+    /************************************************************
+      1) ИНИЦИАЛИЗАЦИЯ КАРТЫ
+    *************************************************************/
     const map = L.map('map').setView([51.09, 71.45], 11);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
-      maxZoom: 19 
-    }).addTo(map);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
-    // Дальше ваш основной код...
-    // Пример, если используете кластер:
-    const markerClusterGroup = L.markerClusterGroup(/* { ...опции... } */);
+    // Создаем группу кластеров, чтобы маркеры не перекрывали друг друга.
+    // Если кластеризация не нужна, уберите всё, что связано с markerClusterGroup.
+    const markerClusterGroup = L.markerClusterGroup();
     map.addLayer(markerClusterGroup);
 
-    // Здесь функции addMarkers, clearMarkers и т.д.
-    // ... остальной ваш функционал ...
+    /************************************************************
+      2) ПОДГОТОВКА ДАННЫХ И ПЕРЕМЕННЫХ
+    *************************************************************/
+    let markersData = []; // массив всех объектов из таблицы
+    let currentMode = 'status'; // режим: 'status', 'reklama', 'plan', 'search'
 
-    /* Пример: сместим стандартные кнопки зума Leaflet вниз:
-       .leaflet-top.leaflet-left { margin-top: 70px; }
-       (это уже прописано в CSS выше).
-    */
+    // Накопительный фильтр по «Плану»
+    let selectedPlanMonths = [];
+    const planMonths = ["Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+    // Пример цветовой гаммы для плана:
+    const planColors = {
+      'март': '#cce5ff',    'апрель': '#99ccff',
+      'май': '#66b3ff',     'июнь': '#3399ff',
+      'июль': '#0080ff',    'август': '#0066cc',
+      'сентябрь': '#0052a3','октябрь': '#003d7a',
+      'ноябрь': '#002952',  'декабрь': '#001429'
+    };
 
-    // Пример кода, если хотите добавить тестовые маркеры:
-    /*
-    for (let i=0; i<20; i++){
-      const marker = L.marker([51.09 + Math.random()*0.1, 71.45 + Math.random()*0.1]);
-      marker.bindPopup('Hello ' + i);
-      markerClusterGroup.addLayer(marker);
+    /************************************************************
+      3) ФУНКЦИИ ПОЛУЧЕНИЯ ЦВЕТА/ФОРМЫ МАРКЕРОВ
+    *************************************************************/
+    function getPlanColor(plan) {
+      if (!plan) return "#CCCCCC";
+      let key = plan.toLowerCase().trim();
+      return planColors[key] || "#CCCCCC";
     }
-    */
+
+    function getStatusColor(status) {
+      const s = (status || "").toLowerCase().trim();
+      switch (s) {
+        case 'работает':     return '#00FF00';
+        case 'не работает':  return '#FF0000';
+        case 'снят':
+        case 'снят табло':   return '#D3D3D3';
+        case 'демонтирован': return '#555555';
+        default:             return '#FFFFFF';
+      }
+    }
+
+    function getReklamaColor(reklama) {
+      let rec = (reklama || "").toLowerCase().replace(/\s/g, '');
+      switch (rec) {
+        case 'led':        return '#FFA500'; // оранжевый
+        case 'lightbox':   return '#800080'; // фиолетовый
+        case 'нет':
+        case 'x':
+        case '(x)нет':
+        case 'none':
+        case 'xнет':       return '#00FFFF'; // бирюза
+        default:           return '#000000'; // чёрный
+      }
+    }
+
+    // Определяет цвет маркера по текущему режиму
+    function getMarkerColor(marker) {
+      if (currentMode === 'status') {
+        return getStatusColor(marker.status);
+      } else if (currentMode === 'reklama') {
+        return getReklamaColor(marker.reklama);
+      } else if (currentMode === 'plan') {
+        return getPlanColor(marker.plan);
+      } else if (currentMode === 'search') {
+        // По умолчанию в поиске показываем цвет по статусу
+        return getStatusColor(marker.status);
+      }
+      return '#FFFFFF';
+    }
+
+    /************************************************************
+      4) ФУНКЦИИ ДОБАВЛЕНИЯ/УДАЛЕНИЯ МАРКЕРОВ НА КАРТУ
+    *************************************************************/
+    // Добавить список (массив) маркеров
+    function addMarkers(data) {
+      clearMarkers(); // сначала удалим предыдущие
+      data.forEach(item => {
+        // Цвет и форма иконки
+        const color = getMarkerColor(item);
+        // Если tablo содержит "медиаборд" => иконка-квадрат, иначе круг
+        let shapeStyle = "";
+        if (item.tablo && item.tablo.toLowerCase().includes("медиаборд")) {
+          shapeStyle = "border-radius:0%;";
+        } else {
+          shapeStyle = "border-radius:50%;";
+        }
+
+        // Размер иконки (например, 20x20)
+        const iconSize = 20;
+        const html = `
+          <div style="
+            background-color: ${color};
+            border: 1px solid black;
+            width: ${iconSize}px;
+            height: ${iconSize}px;
+            ${shapeStyle}
+          "></div>
+        `;
+        const icon = L.divIcon({
+          className: 'custom-icon',
+          html: html,
+          iconSize: [iconSize, iconSize]
+        });
+
+        // Создаем сам Leaflet-маркер
+        const marker = L.marker([item.lat, item.lng], { icon: icon });
+
+        // Popup (подсказка), меняйте поля, если у вас другие названия
+        let popupContent = `
+          <strong>${item.stopName || item.stop || 'Остановка не указана'}</strong><br>
+          ID Остановки: ${item.stopId || item.id || 'не указан'}<br>
+          Улица: ${item.street || 'не указана'}<br>
+          Направление: ${item.direction || 'не указано'}<br>
+          Район: ${item.district || 'не указан'}<br>
+          Табло: ${item.tablo || 'не указано'}<br>
+          Статус: ${item.status || 'не указан'}<br>
+          Реклама: ${item.reklama || 'не указана'}<br>
+          План: ${item.plan || 'не указан'}
+        `;
+        marker.bindPopup(popupContent);
+
+        // Добавляем маркер в кластер
+        markerClusterGroup.addLayer(marker);
+      });
+    }
+
+    // Удалить все маркеры (очистить кластер)
+    function clearMarkers() {
+      markerClusterGroup.clearLayers();
+    }
+
+    /************************************************************
+      5) ЗАГРУЗКА ДАННЫХ ИЗ GOOGLE APPS SCRIPT
+    *************************************************************/
+    // Вставьте свою ссылку на Web App
+    fetch('https://script.google.com/macros/s/AKfycbw02IfURjZsCIZsckiRYKt_kawJ4OlazkNILhw4cGwSj-9cdAXzbP6AtNWWr3zNFnky/exec')
+      .then(response => response.json())
+      .then(data => {
+        markersData = data;
+        addMarkers(markersData);
+        // Обновим счётчики в кнопках
+        document.getElementById('statusLabel').innerText = `Все (${markersData.length})`;
+        document.getElementById('reklamaLabel').innerText = `Все (${markersData.length})`;
+        document.getElementById('planLabel').innerText = `Все (${markersData.length})`;
+      })
+      .catch(error => console.error('Ошибка загрузки данных:', error));
+
+    /************************************************************
+      6) ОТКРЫТИЕ/ЗАКРЫТИЕ НИЖНЕЙ ПАНЕЛИ (ЛЕГЕНДА/ФИЛЬТРЫ)
+    *************************************************************/
+    function togglePanel(title, content) {
+      const panel = document.getElementById('bottomPanel');
+      const overlay = document.getElementById('overlay');
+      if (panel.classList.contains('active') &&
+          document.getElementById('panelTitle').innerText === title) {
+        // Если нажали повторно ту же кнопку
+        closePanel();
+      } else {
+        document.getElementById('panelTitle').innerText = title;
+        document.getElementById('panelContent').innerHTML = content;
+        panel.classList.add('active');
+        overlay.style.display = 'block';
+      }
+      overlay.addEventListener('click', closePanel);
+    }
+    function closePanel() {
+      const panel = document.getElementById('bottomPanel');
+      const overlay = document.getElementById('overlay');
+      panel.classList.remove('active');
+      overlay.style.display = 'none';
+    }
+
+    /************************************************************
+      7) ЛЕГЕНДА
+    *************************************************************/
+    document.getElementById('legendToggle').addEventListener('click', () => {
+      // Выведем легенду по всем категориям
+      togglePanel('Легенда', `
+        <div class="legend-section">
+          <div class="legend-title">Состояние</div>
+          <div class="legend-row">
+            <div class="legend-icon" style="background-color: #00FF00;"></div> Работает
+          </div>
+          <div class="legend-row">
+            <div class="legend-icon" style="background-color: #FF0000;"></div> Не работает
+          </div>
+          <div class="legend-row">
+            <div class="legend-icon" style="background-color: #D3D3D3;"></div> Снят табло
+          </div>
+          <div class="legend-row">
+            <div class="legend-icon" style="background-color: #555555;"></div> Демонтирован
+          </div>
+        </div>
+        <div class="legend-section">
+          <div class="legend-title">Реклама</div>
+          <div class="legend-row">
+            <div class="legend-icon" style="background-color: #FFA500;"></div> LED
+          </div>
+          <div class="legend-row">
+            <div class="legend-icon" style="background-color: #800080;"></div> Lightbox
+          </div>
+          <div class="legend-row">
+            <div class="legend-icon" style="background-color: #00FFFF;"></div> Нет
+          </div>
+        </div>
+        <div class="legend-section">
+          <div class="legend-title">План</div>
+          ${planMonths.map(m => `
+            <div class="legend-row">
+              <div class="legend-icon" style="background-color: ${getPlanColor(m)};"></div> ${m}
+            </div>
+          `).join('')}
+        </div>
+      `);
+    });
+
+    /************************************************************
+      8) ФИЛЬТР ПО СТАТУСУ (СТОЛБЕЦ Q)
+    *************************************************************/
+    document.getElementById('statusToggle').addEventListener('click', () => {
+      togglePanel('Состояние', `
+        <div class="filter-buttons">
+          <button onclick="filterStatus('все')">Все</button>
+          <button onclick="filterStatus('работает')">Работает</button>
+          <button onclick="filterStatus('не работает')">Не работает</button>
+          <button onclick="filterStatus('снят табло')">Снят табло</button>
+          <button onclick="filterStatus('демонтирован')">Демонтирован</button>
+        </div>
+      `);
+    });
+    function filterStatus(status) {
+      currentMode = 'status';
+      let filtered;
+      if (status === 'все') {
+        filtered = markersData;
+      } else {
+        // приводим к нижнему регистру для точного сравнения
+        filtered = markersData.filter(marker => (marker.status || '').toLowerCase().trim() === status);
+      }
+      addMarkers(filtered);
+      closePanel();
+      document.getElementById('statusLabel').innerText =
+        `${status.charAt(0).toUpperCase() + status.slice(1)} (${filtered.length})`;
+    }
+
+    /************************************************************
+      9) ФИЛЬТР ПО РЕКЛАМЕ (СТОЛБЕЦ R)
+    *************************************************************/
+    document.getElementById('reklamaToggle').addEventListener('click', () => {
+      togglePanel('Реклама', `
+        <div class="filter-buttons">
+          <button onclick="filterReklama('все')">Все</button>
+          <button onclick="filterReklama('led')">LED</button>
+          <button onclick="filterReklama('lightbox')">Lightbox</button>
+          <button onclick="filterReklama('нет')">Нет</button>
+        </div>
+      `);
+    });
+    function filterReklama(reklama) {
+      currentMode = 'reklama';
+      let filtered;
+      if (reklama === 'все') {
+        filtered = markersData;
+      } else if (reklama === 'нет') {
+        filtered = markersData.filter(marker => {
+          let rec = (marker.reklama || "").toLowerCase().replace(/\s/g, '');
+          return ['нет','x','(x)нет','none','xнет'].includes(rec);
+        });
+      } else {
+        filtered = markersData.filter(marker => {
+          let rec = (marker.reklama || "").toLowerCase().replace(/\s/g, '');
+          return rec === reklama;
+        });
+      }
+      addMarkers(filtered);
+      closePanel();
+      document.getElementById('reklamaLabel').innerText =
+        `${reklama.toUpperCase()} (${filtered.length})`;
+    }
+
+    /************************************************************
+      10) ФИЛЬТР ПО ПЛАНУ (СТОЛБЕЦ U) — НАКОПИТЕЛЬНЫЙ
+    *************************************************************/
+    document.getElementById('planToggle').addEventListener('click', showPlanPanel);
+    function showPlanPanel() {
+      let content = `<div class="filter-buttons">`;
+      planMonths.forEach(month => {
+        let style = selectedPlanMonths.includes(month) ? 'style="background-color:#555555;"' : '';
+        content += `<button onclick="togglePlanMonth('${month}')" ${style}>${month}</button>`;
+      });
+      content += `<button onclick="clearPlanFilter()">Очистить</button>`;
+      content += `</div>`;
+      togglePanel('План', content);
+    }
+    function togglePlanMonth(month) {
+      if (selectedPlanMonths.includes(month)) {
+        // Удалим если уже есть
+        selectedPlanMonths = selectedPlanMonths.filter(m => m !== month);
+      } else {
+        // Добавим если ещё нет
+        selectedPlanMonths.push(month);
+      }
+      filterPlan();
+      showPlanPanel(); // обновим панель для визуальной индикации
+    }
+    function clearPlanFilter() {
+      selectedPlanMonths = [];
+      filterPlan();
+      showPlanPanel();
+    }
+    function filterPlan() {
+      currentMode = 'plan';
+      let filtered;
+      if (selectedPlanMonths.length === 0) {
+        filtered = markersData;
+      } else {
+        filtered = markersData.filter(marker => {
+          return selectedPlanMonths.includes(marker.plan);
+        });
+      }
+      addMarkers(filtered);
+      document.getElementById('planLabel').innerText =
+        selectedPlanMonths.length === 0
+          ? `Все (${markersData.length})`
+          : `${selectedPlanMonths.join('+')} (${filtered.length})`;
+    }
+
+    /************************************************************
+      11) ПОИСК ПО ID ТАБЛО ИЛИ НАЗВАНИЮ ОСТАНОВКИ
+    *************************************************************/
+    document.getElementById('searchBtn').addEventListener('click', filterSearch);
+    document.getElementById('searchInput').addEventListener('keypress', function(e){
+      if (e.key === 'Enter'){
+        filterSearch();
+      }
+    });
+    function filterSearch() {
+      const query = document.getElementById('searchInput').value.toLowerCase().trim();
+      currentMode = 'search';
+      const filtered = markersData.filter(marker => {
+        const stopName = (marker.stopName || marker.stop || "").toLowerCase();
+        const stopId = (marker.stopId || marker.id || "").toString().toLowerCase();
+        // Проверяем, встречается ли запрос в названии остановки или ID
+        return stopName.includes(query) || stopId.includes(query);
+      });
+      addMarkers(filtered);
+    }
   </script>
 </body>
 </html>
