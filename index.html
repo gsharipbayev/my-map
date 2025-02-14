@@ -6,14 +6,25 @@
   <title>Leaflet Map (Sheets + Apps Script)</title>
 
   <!-- Leaflet CSS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
+  />
 
   <!-- MarkerCluster CSS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"
+  />
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"
+  />
 
   <style>
-    html, body {
+    /* Базовые стили на всю страницу */
+    html,
+    body {
       margin: 0;
       padding: 0;
       height: 100%;
@@ -21,14 +32,16 @@
       font-size: 18px;
     }
 
+    /* Карта на весь экран */
     #map {
       width: 100%;
       height: 100%;
       z-index: 0;
     }
 
+    /* Смещение стандартных кнопок (+/-) Leaflet */
     .leaflet-top.leaflet-left {
-      margin-top: 70px; /* отступ для кнопок зума */
+      margin-top: 70px; /* при необходимости подправьте */
     }
 
     /* Верхняя панель поиска */
@@ -64,26 +77,28 @@
       border-radius: 5px;
     }
 
-    /* Кнопки снизу, фиксированные */
+    /* Кнопки снизу, фиксированные.
+       Уменьшили их примерно на 15% по сравнению с предыдущим кодом. */
     .control-buttons {
       position: fixed;
-      bottom: 10px; /* приподнимаем на 10px */
+      bottom: 10px;
       left: 50%;
       transform: translateX(-50%);
       display: flex;
-      gap: 5px; /* уменьшаем зазор между кнопками */
+      gap: 5px;
       z-index: 1001;
     }
     .btn {
-      padding: 15px 25px;
+      /* БЫЛО: padding: 15px 25px, font-size: 16px, min-width: 150px */
+      padding: 13px 21px;  /* ~15% меньше */
+      font-size: 14px;     /* тоже уменьшаем ~15% */
+      min-width: 130px;    /* тоже чуть меньше */
       background-color: #007bff;
       color: white;
       border: none;
       border-radius: 8px;
-      font-size: 16px;
       cursor: pointer;
       transition: background-color 0.3s;
-      min-width: 150px;
       text-align: center;
     }
     .btn:hover {
@@ -96,6 +111,7 @@
       margin-top: 5px;
     }
 
+    /* Полупрозрачная подложка */
     .overlay {
       position: fixed;
       top: 0;
@@ -107,6 +123,7 @@
       z-index: 1000;
     }
 
+    /* Нижняя панель (Легенда или фильтры) */
     .bottom-panel {
       position: fixed;
       bottom: -100%;
@@ -159,15 +176,16 @@
       border: 1px solid black;
     }
 
-    /* На мобильных уменьшаем ширину кнопок и их отступы */
+    /* На мобильных уменьшаем ещё ~15% */
     @media (max-width: 600px) {
       #searchInput {
         width: 180px;
       }
       .btn {
-        padding: 10px 12px;
-        font-size: 14px;
-        min-width: 100px; /* можно ещё меньше, если нужно */
+        /* БЫЛО: padding: 10px 12px, font-size: 14px, min-width: 100px */
+        padding: 8px 10px;   /* чуть меньше */
+        font-size: 12px;     /* тоже уменьшаем */
+        min-width: 85px;     /* тоже чуть меньше */
       }
       .bottom-panel {
         width: 95%;
@@ -219,19 +237,15 @@
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 
   <script>
-    /*
-      Здесь размещайте всю свою логику (добавление карты, маркеров,
-      фильтры и т. д.), как мы делали раньше.
-    */
+    // Пример инициализации карты
     const map = L.map("map").setView([51.09, 71.45], 11);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
     }).addTo(map);
 
+    // Если нужно, подключайте логику MarkerCluster и фильтрации дальше...
     const markerClusterGroup = L.markerClusterGroup();
     map.addLayer(markerClusterGroup);
-
-    // И т.д... (фильтры, загрузка данных, легенда)
   </script>
 </body>
 </html>
