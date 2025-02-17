@@ -394,42 +394,39 @@
     }
 
     /***********************************************************
-     * 5) ФИЛЬТРАЦИЯ (комбинированная)
+     * ГЛАВНАЯ ФУНКЦИЯ ФИЛЬТРА
      ***********************************************************/
     function applyCombinedFilter() {
       const filtered = markersData.filter(m => {
-        // СТАТУС
-        const st = (m.status || "").toLowerCase().trim();
+        // Проверка статуса
+        const st = (m.status || "").toLowerCase();
         const passStatus = (selectedStatuses.length === 0) || selectedStatuses.includes(st);
 
-        // РЕКЛАМА
+        // Реклама
         let rec = (m.reklama || "").toLowerCase().replace(/\s/g, "");
-        if (["x","(x)нет","none","xнет"].includes(rec)) rec = "нет";
+        if (["x","(x)нет","none","xнет"].includes(rec)) {
+          rec = "нет";
+        }
         const passReklama = (selectedReklamas.length === 0) || selectedReklamas.includes(rec);
 
-        // ПЛАН
-        const p = (m.plan || "").trim();
-        const passPlan = (selectedPlans.length === 0) || selectedPlans.includes(p);
+        // План
+        const pl = (m.plan || "").toLowerCase();
+        const passPlan = (selectedPlans.length === 0) || selectedPlans.includes(pl);
 
         return passStatus && passReklama && passPlan;
       });
       addMarkers(filtered);
-      updateLabels(filtered.length);
 
-      // Подсветка нижних кнопок
+      // Если нужно обновлять счётчики на кнопках, сделайте здесь, напр.:
+      // document.getElementById("planToggle").innerText = `План (${filtered.length})`;
+
+      // Подсветка кнопок
       highlightFilterButton("statusToggle",  selectedStatuses.length > 0);
       highlightFilterButton("reklamaToggle", selectedReklamas.length > 0);
       highlightFilterButton("planToggle",    selectedPlans.length    > 0);
     }
 
-    // Обновить счётчики
-    function updateLabels(count) {
-      document.getElementById("statusLabel").innerText  = `Все (${count})`;
-      document.getElementById("reklamaLabel").innerText = `Все (${count})`;
-      document.getElementById("planLabel").innerText    = `Все (${count})`;
-    }
-
-    // Подсветка активных кнопок
+    // Подсветка кнопок снизу
     function highlightFilterButton(btnId, isActive) {
       const btn = document.getElementById(btnId);
       if (isActive) {
@@ -483,28 +480,28 @@
       markerClusterGroup.clearLayers();
     }
 
-    /***********************************************************
-     * 7) ЗАГРУЗКА ДАННЫХ (пример)
+/***********************************************************
+     * ЗАГРУЗКА ДАННЫХ ИЗ APPS SCRIPT (массив массивов)
      ***********************************************************/
     fetch("https://script.google.com/macros/s/AKfycbw02IfURjZsCIZsckiRYKt_kawJ4OlazkNILhw4cGwSj-9cdAXzbP6AtNWWr3zNFnky/exec")
       .then(r => r.json())
-      .then(data => {
-        markersData = data;
+      .then(rows => {
+        // rows - массив массивов
+        markersData = rows.map(row => transformRowToObj(row));
+        // Ставим маркеры все
         addMarkers(markersData);
-        updateLabels(markersData.length);
       })
-      .catch(e => console.error("Ошибка загрузки:", e));
+      .catch(err => console.error("Ошибка:", err));
 
     /***********************************************************
-     * 8) ОТКРЫТИЕ/ЗАКРЫТИЕ НИЖНЕЙ ПАНЕЛИ
+     * ОТКРЫТИЕ/ЗАКРЫТИЕ НИЖНЕЙ ПАНЕЛИ
      ***********************************************************/
     const overlay = document.getElementById("overlay");
     const bottomPanel = document.getElementById("bottomPanel");
+    const panelTitle = document.getElementById("panelTitle");
+    const panelContent = document.getElementById("panelContent");
 
     function togglePanel(title, content) {
-      const panelTitle = document.getElementById("panelTitle");
-      const panelContent = document.getElementById("panelContent");
-
       if (bottomPanel.classList.contains("active") && panelTitle.innerText === title) {
         closePanel();
       } else {
@@ -623,46 +620,36 @@
       document.getElementById("reklamaToggle").click();
     };
 
-/***********************************************************
- * 12) ФИЛЬТР "ПЛАН"
- ***********************************************************/
-document.getElementById("planToggle").addEventListener("click", () => {
-  let html = `<div class="filter-buttons">`;
+    /***********************************************************
+     * 12) ФИЛЬТР «ПЛАН» (по той же модели, что и «Статус»)
+     ***********************************************************/
+    document.getElementById("planToggle").addEventListener("click", () => {
+      let html = `<div class="filter-buttons">`;
+      planMonths.forEach(m => {
+        const active = selectedPlans.includes(m) ? "active" : "";
+        html += `<button class="${active}" onclick="togglePlan('${m}')">${m}</button>`;
+      });
+      html += `<button onclick="clearPlans()">Очистить</button>`;
+      html += `</div>`;
+      togglePanel("План", html);
+    });
 
-  planMonths.forEach(m => {
-    // Подсвечиваем кнопку, если месяц уже выбран
-    const isActive = selectedPlans.includes(m) ? "active" : "";
-    html += `<button class="${isActive}" onclick="togglePlan('${m}')">${m}</button>`;
-  });
+    window.togglePlan = function(m) {
+      if (selectedPlans.includes(m)) {
+        selectedPlans = selectedPlans.filter(x => x !== m);
+      } else {
+        selectedPlans.push(m);
+      }
+      applyCombinedFilter();
+      // Перезапустить панель, чтобы обновились кнопки
+      document.getElementById("planToggle").click();
+    };
 
-  // Кнопка для очистки выбранных месяцев
-  html += `<button onclick="clearPlans()">Очистить</button>`;
-  html += `</div>`;
-
-  // Показываем нижнюю панель с заголовком "План"
-  togglePanel("План", html);
-});
-
-// При нажатии на конкретный месяц
-window.togglePlan = function(m) {
-  if (selectedPlans.includes(m)) {
-    // Удаляем месяц из массива, если он уже был выбран
-    selectedPlans = selectedPlans.filter(x => x !== m);
-  } else {
-    // Добавляем, если ещё не был выбран
-    selectedPlans.push(m);
-  }
-  applyCombinedFilter();
-  // Перезапускаем "панель", чтобы обновить состояние кнопок
-  document.getElementById("planToggle").click();
-};
-
-// Сброс всех выбранных месяцев
-window.clearPlans = function() {
-  selectedPlans = [];
-  applyCombinedFilter();
-  document.getElementById("planToggle").click();
-};
+    window.clearPlans = function() {
+      selectedPlans = [];
+      applyCombinedFilter();
+      document.getElementById("planToggle").click();
+    };
 
 
 
