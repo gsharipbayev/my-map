@@ -625,45 +625,35 @@
     };
 
     /***********************************************************
-     * 12) ФИЛЬТР "ПЛАН"
-     ***********************************************************/
-    document.getElementById("planToggle").addEventListener("click", () => {
+ * 12) ФИЛЬТР "ПЛАН"
+ ***********************************************************/
+document.getElementById("planToggle").addEventListener("click", () => {
   let html = `<div class="filter-buttons">`;
   planMonths.forEach(m => {
     const active = selectedPlans.includes(m) ? "active" : "";
-    html += `<button class="active" onclick="togglePlan('{m}')">m</button>`;
-  );
+    html += `<button class="${active}" onclick="togglePlan('${m}')">${m}</button>`;
+  });
   html += `<button onclick="clearPlans()">Очистить</button>`;
   html += `</div>`;
   togglePanel("План", html);
-);
+});
 
-window.togglePlan = function(m) 
-  if (selectedPlans.includes(m)) 
+window.togglePlan = function(m) {
+  if (selectedPlans.includes(m)) {
     selectedPlans = selectedPlans.filter(x => x !== m);
-   else 
+  } else {
     selectedPlans.push(m);
-  
+  }
   applyCombinedFilter();
-  document.getElementById("planToggle").click();
-;
+  document.getElementById("planToggle").click(); // перезапускаем панель
+};
 
-window.clearPlans = function() 
+window.clearPlans = function() {
   selectedPlans = [];
   applyCombinedFilter();
   document.getElementById("planToggle").click();
-;
-
-function applyCombinedFilter() 
-  console.log("Применен фильтр с планами:", selectedPlans);
-  // Логика применения фильтра
-
-
-function togglePanel(title, htmlContent) 
-  const panel = document.getElementById("filterPanel");
-  panel.innerHTML = `<h2>{title}</h2>${htmlContent}`;
-  panel.style.display = "block"; // Или другая логика отображения
 };
+
 
     /***********************************************************
      * 13) ПОИСК
