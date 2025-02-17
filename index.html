@@ -346,7 +346,8 @@
     const allStatuses = ["работает","не работает","снят табло","демонтирован"];
     const allReklamas = ["led","lightbox","нет"];
     const planMonths  = [
-      "март","апрель","май","июнь","июль","август","сентябрь","октябрь","ноябрь","декабрь"
+      "Март","Апрель","Май","Июнь","Июль","Август",
+      "Сентябрь","Октябрь","Ноябрь","Декабрь"
     ];
 
     // Пример цветов для плана (если нужно)
@@ -394,39 +395,42 @@
     }
 
     /***********************************************************
-     * ГЛАВНАЯ ФУНКЦИЯ ФИЛЬТРА
+     * 5) ФИЛЬТРАЦИЯ (комбинированная)
      ***********************************************************/
     function applyCombinedFilter() {
       const filtered = markersData.filter(m => {
-        // Проверка статуса
-        const st = (m.status || "").toLowerCase();
+        // СТАТУС
+        const st = (m.status || "").toLowerCase().trim();
         const passStatus = (selectedStatuses.length === 0) || selectedStatuses.includes(st);
 
-        // Реклама
+        // РЕКЛАМА
         let rec = (m.reklama || "").toLowerCase().replace(/\s/g, "");
-        if (["x","(x)нет","none","xнет"].includes(rec)) {
-          rec = "нет";
-        }
+        if (["x","(x)нет","none","xнет"].includes(rec)) rec = "нет";
         const passReklama = (selectedReklamas.length === 0) || selectedReklamas.includes(rec);
 
-        // План
-        const pl = (m.plan || "").toLowerCase();
-        const passPlan = (selectedPlans.length === 0) || selectedPlans.includes(pl);
+        // ПЛАН
+        const p = (m.plan || "").trim();
+        const passPlan = (selectedPlans.length === 0) || selectedPlans.includes(p);
 
         return passStatus && passReklama && passPlan;
       });
       addMarkers(filtered);
+      updateLabels(filtered.length);
 
-      // Если нужно обновлять счётчики на кнопках, сделайте здесь, напр.:
-      // document.getElementById("planToggle").innerText = `План (${filtered.length})`;
-
-      // Подсветка кнопок
+      // Подсветка нижних кнопок
       highlightFilterButton("statusToggle",  selectedStatuses.length > 0);
       highlightFilterButton("reklamaToggle", selectedReklamas.length > 0);
       highlightFilterButton("planToggle",    selectedPlans.length    > 0);
     }
 
-    // Подсветка кнопок снизу
+    // Обновить счётчики
+    function updateLabels(count) {
+      document.getElementById("statusLabel").innerText  = `Все (${count})`;
+      document.getElementById("reklamaLabel").innerText = `Все (${count})`;
+      document.getElementById("planLabel").innerText    = `Все (${count})`;
+    }
+
+    // Подсветка активных кнопок
     function highlightFilterButton(btnId, isActive) {
       const btn = document.getElementById(btnId);
       if (isActive) {
@@ -480,28 +484,28 @@
       markerClusterGroup.clearLayers();
     }
 
-/***********************************************************
-     * ЗАГРУЗКА ДАННЫХ ИЗ APPS SCRIPT (массив массивов)
+    /***********************************************************
+     * 7) ЗАГРУЗКА ДАННЫХ (пример)
      ***********************************************************/
     fetch("https://script.google.com/macros/s/AKfycbw02IfURjZsCIZsckiRYKt_kawJ4OlazkNILhw4cGwSj-9cdAXzbP6AtNWWr3zNFnky/exec")
       .then(r => r.json())
-      .then(rows => {
-        // rows - массив массивов
-        markersData = rows.map(row => transformRowToObj(row));
-        // Ставим маркеры все
+      .then(data => {
+        markersData = data;
         addMarkers(markersData);
+        updateLabels(markersData.length);
       })
-      .catch(err => console.error("Ошибка:", err));
+      .catch(e => console.error("Ошибка загрузки:", e));
 
     /***********************************************************
-     * ОТКРЫТИЕ/ЗАКРЫТИЕ НИЖНЕЙ ПАНЕЛИ
+     * 8) ОТКРЫТИЕ/ЗАКРЫТИЕ НИЖНЕЙ ПАНЕЛИ
      ***********************************************************/
     const overlay = document.getElementById("overlay");
     const bottomPanel = document.getElementById("bottomPanel");
-    const panelTitle = document.getElementById("panelTitle");
-    const panelContent = document.getElementById("panelContent");
 
     function togglePanel(title, content) {
+      const panelTitle = document.getElementById("panelTitle");
+      const panelContent = document.getElementById("panelContent");
+
       if (bottomPanel.classList.contains("active") && panelTitle.innerText === title) {
         closePanel();
       } else {
@@ -621,7 +625,7 @@
     };
 
     /***********************************************************
-     * 12) ФИЛЬТР «ПЛАН» (по той же модели, что и «Статус»)
+     * 12) ФИЛЬТР "ПЛАН"
      ***********************************************************/
     document.getElementById("planToggle").addEventListener("click", () => {
       let html = `<div class="filter-buttons">`;
@@ -633,7 +637,6 @@
       html += `</div>`;
       togglePanel("План", html);
     });
-
     window.togglePlan = function(m) {
       if (selectedPlans.includes(m)) {
         selectedPlans = selectedPlans.filter(x => x !== m);
@@ -641,17 +644,13 @@
         selectedPlans.push(m);
       }
       applyCombinedFilter();
-      // Перезапустить панель, чтобы обновились кнопки
       document.getElementById("planToggle").click();
     };
-
     window.clearPlans = function() {
       selectedPlans = [];
       applyCombinedFilter();
       document.getElementById("planToggle").click();
     };
-
-
 
     /***********************************************************
      * 13) ПОИСК
