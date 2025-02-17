@@ -624,35 +624,47 @@
       document.getElementById("reklamaToggle").click();
     };
 
-    /***********************************************************
+/***********************************************************
  * 12) ФИЛЬТР "ПЛАН"
  ***********************************************************/
 document.getElementById("planToggle").addEventListener("click", () => {
   let html = `<div class="filter-buttons">`;
+
   planMonths.forEach(m => {
-    const active = selectedPlans.includes(m) ? "active" : "";
-    html += `<button class="${active}" onclick="togglePlan('${m}')">${m}</button>`;
+    // Подсвечиваем кнопку, если месяц уже выбран
+    const isActive = selectedPlans.includes(m) ? "active" : "";
+    html += `<button class="${isActive}" onclick="togglePlan('${m}')">${m}</button>`;
   });
+
+  // Кнопка для очистки выбранных месяцев
   html += `<button onclick="clearPlans()">Очистить</button>`;
   html += `</div>`;
+
+  // Показываем нижнюю панель с заголовком "План"
   togglePanel("План", html);
 });
 
+// При нажатии на конкретный месяц
 window.togglePlan = function(m) {
   if (selectedPlans.includes(m)) {
+    // Удаляем месяц из массива, если он уже был выбран
     selectedPlans = selectedPlans.filter(x => x !== m);
   } else {
+    // Добавляем, если ещё не был выбран
     selectedPlans.push(m);
   }
   applyCombinedFilter();
-  document.getElementById("planToggle").click(); // перезапускаем панель
+  // Перезапускаем "панель", чтобы обновить состояние кнопок
+  document.getElementById("planToggle").click();
 };
 
+// Сброс всех выбранных месяцев
 window.clearPlans = function() {
   selectedPlans = [];
   applyCombinedFilter();
   document.getElementById("planToggle").click();
 };
+
 
 
     /***********************************************************
