@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Leaflet Map (Состояние по умолчанию)</title>
+  <title>Leaflet + MarkerCluster (Состояние по умолчанию)</title>
 
-  <!-- Leaflet CSS -->
+  <!-- Стили Leaflet -->
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
   />
-  <!-- MarkerCluster CSS -->
+  <!-- Стили MarkerCluster -->
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"
@@ -23,247 +23,247 @@
   <style>
     /* Базовые стили */
     html, body {
-      margin:0; 
-      padding:0; 
-      height:100%;
-      font-family:sans-serif; 
-      font-size:16px;
+      margin: 0; padding: 0;
+      height: 100%;
+      font-family: sans-serif;
+      font-size: 16px;
     }
     #map {
-      width:100%; 
-      height:100%;
-      z-index:0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
     }
     .leaflet-top.leaflet-left {
-      margin-top:70px; /* чтобы кнопки зума не закрывали панель */
+      margin-top: 70px; /* чтобы кнопки зума не закрывали панель поиска */
     }
 
     /*---------------------------------------------
-      1) Верхняя панель поиска (авто-скрытие)
+      1) Авто-скрывающаяся верхняя панель поиска
     ----------------------------------------------*/
     #searchActivator {
-      position:fixed;
-      top:0; left:0; right:0;
-      height:10px;
-      z-index:3000;
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 10px;
+      z-index: 3000;
     }
     #topSearchBar {
-      position:fixed;
-      top:-70px; 
-      left:0; right:0;
-      z-index:3001;
-      display:flex; 
-      justify-content:center;
-      background:rgba(255,255,255,0.9);
-      padding:8px;
-      box-shadow:0 2px 5px rgba(0,0,0,0.3);
-      gap:8px;
-      align-items:center;
+      position: fixed;
+      top: -70px;
+      left: 0; right: 0;
+      z-index: 3001;
+      display: flex;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+      gap: 8px;
+      align-items: center;
       transition: top 0.3s;
     }
     #topSearchBar.show {
-      top:0;
+      top: 0;
     }
     #searchInput {
-      flex:1; 
-      max-width:600px;
-      padding:5px;
-      font-size:15px;
-      border:1px solid #ccc; 
-      border-radius:5px;
+      flex: 1;
+      max-width: 600px;
+      padding: 5px;
+      font-size: 15px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
     }
     #searchBtn {
-      font-size:14px;
-      padding:5px 8px;
-      cursor:pointer;
-      border:none; 
-      background:#007bff;
-      color:#fff; 
-      border-radius:5px;
-      flex-shrink:0;
+      font-size: 14px;
+      padding: 5px 8px;
+      cursor: pointer;
+      border: none;
+      background: #007bff;
+      color: #fff;
+      border-radius: 5px;
+      flex-shrink: 0;
     }
 
     /*---------------------------------------------
       2) Кнопки снизу (Легенда/Состояние/Реклама/План)
     ----------------------------------------------*/
     .control-buttons {
-      position:fixed;
-      bottom:10px;
-      left:50%;
-      transform:translateX(-50%);
-      display:flex;
-      gap:6px;
-      z-index:1001;
+      position: fixed;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 6px;
+      z-index: 1001;
     }
     .btn {
-      padding:10px 16px;
-      font-size:14px;
-      min-width:110px;
-      background-color:#007bff;
-      color:#fff;
-      border:none;
-      border-radius:8px;
-      cursor:pointer;
-      transition:background-color 0.3s;
-      text-align:center;
+      padding: 10px 16px;
+      font-size: 14px;
+      min-width: 110px;
+      background-color: #007bff;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+      text-align: center;
     }
     .btn.active-filter {
-      background-color:#0056b3;
+      background-color: #0056b3;
     }
     .btn:hover {
-      background-color:#0056b3;
+      background-color: #0056b3;
     }
     .btn span {
-      display:block;
-      font-size:12px;
-      color:#d1e8ff;
-      margin-top:5px;
+      display: block;
+      font-size: 12px;
+      color: #d1e8ff;
+      margin-top: 5px;
     }
 
     /*---------------------------------------------
       3) Подложка + нижняя панель (легенда/фильтры)
     ----------------------------------------------*/
     .overlay {
-      position:fixed;
-      top:0; left:0;
-      width:100%; height:100%;
-      background:rgba(0,0,0,0.5);
-      display:none;
-      z-index:1000;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      display: none;
+      z-index: 1000;
     }
     .bottom-panel {
-      position:fixed;
-      bottom:-100%;
-      left:50%;
-      transform:translateX(-50%);
-      width:90%;
-      max-width:500px;
-      background:#fff;
-      border-radius:15px 15px 0 0;
-      font-size:16px;
-      padding:20px;
-      box-shadow:0 -2px 15px rgba(0,0,0,0.3);
-      transition:bottom 0.4s ease-in-out;
-      z-index:1002;
+      position: fixed;
+      bottom: -100%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 90%;
+      max-width: 500px;
+      background: #fff;
+      border-radius: 15px 15px 0 0;
+      font-size: 16px;
+      padding: 20px;
+      box-shadow: 0 -2px 15px rgba(0, 0, 0, 0.3);
+      transition: bottom 0.4s ease-in-out;
+      z-index: 1002;
     }
     .bottom-panel.active {
-      bottom:10%;
+      bottom: 10%;
     }
     .panel-title {
-      font-size:20px;
-      font-weight:bold;
-      margin-bottom:15px;
-      color:#333;
+      font-size: 20px;
+      font-weight: bold;
+      margin-bottom: 15px;
+      color: #333;
     }
 
     /*---------------------------------------------
       4) Кнопки внутри фильтра
     ----------------------------------------------*/
     .filter-buttons {
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
     }
     .filter-buttons button {
-      background:#007bff; 
-      color:#fff;
-      border:none; 
-      border-radius:5px;
-      padding:6px 12px;
-      cursor:pointer;
-      font-size:14px;
-      transition:background 0.2s;
+      background: #007bff;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      padding: 6px 12px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.2s;
     }
     .filter-buttons button:hover {
-      background:#0062cc;
+      background: #0062cc;
     }
     .filter-buttons button.active {
-      background:#0056b3;
+      background: #0056b3;
     }
 
     /*---------------------------------------------
       5) Легенда
     ----------------------------------------------*/
     .legend-container {
-      display:flex; 
-      flex-wrap:wrap; 
-      gap:15px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
     }
     .legend-section {
-      display:flex;
-      flex-direction:column;
-      gap:10px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
     }
     .legend-title {
-      font-weight:bold; 
-      margin-bottom:5px;
+      font-weight: bold;
+      margin-bottom: 5px;
     }
     .legend-row {
-      display:flex;
-      align-items:center;
-      gap:10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
     .legend-icon {
-      width:20px; height:20px;
-      display:inline-block;
-      border-radius:50%;
-      border:1px solid #000;
+      width: 20px;
+      height: 20px;
+      display: inline-block;
+      border-radius: 50%;
+      border: 1px solid #000;
     }
 
     /*---------------------------------------------
-      6) Кластер: radius=80, 
-         если 1 цвет => цвет, иначе белый
+      6) MarkerCluster (radius=80). 
+         Если 1 цвет => цвет, иначе белый
     ----------------------------------------------*/
     .cluster-icon {
-      font-weight:bold;
-      text-align:center;
+      font-weight: bold;
+      text-align: center;
     }
-    /* У divIcon убираем фон */
+    /* Снимаем встроенный фон у divIcon */
     .my-div-icon {
-      background:none !important; 
-      border:none !important;
+      background: none !important;
+      border: none !important;
     }
 
     /*---------------------------------------------
       7) Адаптация под мобильные
     ----------------------------------------------*/
-    @media (max-width:600px){
+    @media (max-width: 600px) {
       #searchInput {
-        max-width:400px; 
-        font-size:14px;
+        max-width: 400px;
+        font-size: 14px;
       }
       #searchBtn {
-        font-size:12px; 
-        padding:4px 6px;
+        font-size: 12px;
+        padding: 4px 6px;
       }
       .btn {
-        padding:8px 12px; 
-        font-size:13px; 
-        min-width:90px;
+        padding: 8px 12px;
+        font-size: 13px;
+        min-width: 90px;
       }
       .bottom-panel {
-        width:95%; 
-        font-size:14px;
+        width: 95%;
+        font-size: 14px;
       }
       .panel-title {
-        font-size:18px;
+        font-size: 18px;
       }
       .filter-buttons button {
-        font-size:13px; 
-        padding:5px 10px;
+        font-size: 13px;
+        padding: 5px 10px;
       }
     }
   </style>
 </head>
 <body>
-  <!-- Полоса-активатор для верхней панели поиска -->
+  <!-- Полоса-активатор для верхней панели -->
   <div id="searchActivator"></div>
 
   <!-- Верхняя панель поиска -->
   <div id="topSearchBar">
-    <input 
-      type="text" 
-      id="searchInput" 
+    <input
+      type="text"
+      id="searchInput"
       placeholder="Поиск по ID Табло или Название остановки"
     />
     <button id="searchBtn">🔍</button>
@@ -293,18 +293,19 @@
     <div id="panelContent" class="legend-container"></div>
   </div>
 
-  <!-- Leaflet + MarkerCluster -->
+  <!-- Подключаем Leaflet (скрипт) -->
   <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+  <!-- Подключаем MarkerCluster (2 файла) -->
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.js"></script>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.js"></script>
 
   <script>
-    /****************************************************
-     * 1) АВТО-СКРЫТИЕ ВЕРХНЕЙ ПАНЕЛИ
-     ****************************************************/
-    const searchActivator= document.getElementById("searchActivator");
-    const topSearchBar   = document.getElementById("topSearchBar");
-    let hideTimer=null;
+    /***********************************************************
+     * 1) Авто-скрытие верхней панели
+     ***********************************************************/
+    const searchActivator = document.getElementById("searchActivator");
+    const topSearchBar    = document.getElementById("topSearchBar");
+    let hideTimer = null;
     function showSearchBar(){
       clearTimeout(hideTimer);
       topSearchBar.classList.add("show");
@@ -319,25 +320,24 @@
     searchActivator.addEventListener("mouseleave", startHideTimer);
     searchActivator.addEventListener("touchstart", showSearchBar,{passive:true});
     topSearchBar.addEventListener("mouseleave", startHideTimer);
-    topSearchBar.addEventListener("touchstart", ()=>clearTimeout(hideTimer),{passive:true});
+    topSearchBar.addEventListener("touchstart",()=>clearTimeout(hideTimer),{passive:true});
 
-    /****************************************************
-     * 2) КАРТА
-     ****************************************************/
-    const map= L.map("map").setView([51.09,71.45],11);
+    /***********************************************************
+     * 2) ИНИЦИАЛИЗАЦИЯ КАРТЫ
+     ***********************************************************/
+    const map= L.map("map").setView([51.09,71.45], 11);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
-      maxZoom:19,
+      maxZoom:19
     }).addTo(map);
 
-    // 1 MarkerClusterGroup
+    // MarkerClusterGroup (будем пересоздавать при каждом addMarkers)
     let markerClusterGroup=null;
 
-    /****************************************************
-     * 3) ДАННЫЕ. colorMode='status' по умолчанию
-     ****************************************************/
-    let markersData=[];
-    let colorMode='status'; // по умолчанию
-
+    /***********************************************************
+     * 3) colorMode='status' — по умолчанию
+     ***********************************************************/
+    let markersData=[]; // после fetch
+    let colorMode='status'; // изначально «Состояние»
     let selectedStatuses=[];
     let selectedReklamas=[];
     let selectedPlans=[];
@@ -349,7 +349,6 @@
       "сентябрь","октябрь","ноябрь","декабрь"
     ];
 
-    // Раскраска по статусу
     function getStatusColor(st){
       const s=(st||"").toLowerCase().trim();
       switch(s){
@@ -360,18 +359,16 @@
         default:               return "#FFFFFF";
       }
     }
-    // Реклама
-    function getReklamaColor(rk){
-      let r=(rk||"").toLowerCase().replace(/\s/g,'');
-      if(["x","(x)нет","none","xнет"].includes(r)) r='нет';
-      switch(r){
+    function getReklamaColor(r){
+      let rec=(r||"").toLowerCase().replace(/\s/g,'');
+      if(["x","(x)нет","none","xнет"].includes(rec)) rec='нет';
+      switch(rec){
         case "led":       return "#FFA500";
         case "lightbox":  return "#800080";
         case "нет":       return "#00FFFF";
         default:          return "#000000";
       }
     }
-    // План
     const planColors={
       "март":"#cce5ff","апрель":"#99ccff","май":"#66b3ff","июнь":"#3399ff",
       "июль":"#0080ff","август":"#0066cc","сентябрь":"#0052a3","октябрь":"#003d7a",
@@ -382,11 +379,12 @@
       return planColors[p]||"#CCCCCC";
     }
 
-    /****************************************************
-     * 4) ДОБАВЛЕНИЕ МАРКЕРОВ (одна общая группа)
-     ****************************************************/
+    /***********************************************************
+     * 4) ФУНКЦИЯ ДОБАВЛЕНИЯ МАРКЕРОВ
+     *    Кластер = ОДИН group, но проверяем цвета 
+     ***********************************************************/
     function addMarkers(data){
-      // Удаляем предыдущую группу, если есть
+      // Удаляем предыдущий кластер
       if(markerClusterGroup){
         map.removeLayer(markerClusterGroup);
       }
@@ -394,51 +392,51 @@
       markerClusterGroup= L.markerClusterGroup({
         maxClusterRadius:80,
         iconCreateFunction: cluster=>{
-          // Собираем список маркеров
+          // Собираем список цветов
           const markers= cluster.getAllChildMarkers();
-          const colorMap={};
+          const colorCountMap={};
           markers.forEach(m=>{
             const c=m.myColor||"#cccccc";
-            colorMap[c]= (colorMap[c]||0)+1;
+            colorCountMap[c]=(colorCountMap[c]||0)+1;
           });
-          const colors= Object.keys(colorMap);
+          const colors= Object.keys(colorCountMap);
           const count= cluster.getChildCount();
+
           if(colors.length===1){
-            // Один цвет => цветной круг
+            // все маркеры кластера одного цвета
             const c= colors[0];
             return L.divIcon({
               html:`<div style="
                 background-color:${c};
                 border-radius:50%;
                 width:40px; height:40px;
-                display:flex; align-items:center; 
+                display:flex; align-items:center;
                 justify-content:center;
                 color:#000; font-weight:bold;
               ">${count}</div>`,
               className:'cluster-icon',
-              iconSize:[40,40],
+              iconSize:[40,40]
             });
           } else {
-            // Несколько цветов => белый круг
+            // несколько цветов => белый
             return L.divIcon({
               html:`<div style="
                 background-color:#FFF;
                 border-radius:50%;
                 width:40px; height:40px;
-                display:flex; align-items:center; 
+                display:flex; align-items:center;
                 justify-content:center;
                 color:#000; font-weight:bold;
               ">${count}</div>`,
               className:'cluster-icon',
-              iconSize:[40,40],
+              iconSize:[40,40]
             });
           }
         }
       });
 
-      // Создаём маркеры
       data.forEach(item=>{
-        // Выбираем цвет
+        // Выбираем цвет, исходя из colorMode
         let color="#FFFFFF";
         if(colorMode==='status'){
           color= getStatusColor(item.status);
@@ -466,9 +464,9 @@
         const icon= L.divIcon({
           className:'my-div-icon',
           html:iconHTML,
-          iconSize:[20,20],
+          iconSize:[20,20]
         });
-        const marker=L.marker([lat,lng],{icon});
+        const marker= L.marker([lat,lng],{icon});
         marker.myColor= color; // для кластера
 
         // Попап
@@ -493,9 +491,9 @@
       map.addLayer(markerClusterGroup);
     }
 
-    /****************************************************
+    /***********************************************************
      * 5) ФИЛЬТРАЦИЯ
-     ****************************************************/
+     ***********************************************************/
     function applyCombinedFilter(){
       const filtered= markersData.filter(m=>{
         // Состояние
@@ -522,32 +520,32 @@
       document.getElementById("planLabel").innerText=   `Все (${count})`;
     }
 
-    /****************************************************
+    /***********************************************************
      * 6) ЗАГРУЗКА ДАННЫХ
-     *    colorMode='status' => показываем все
-     ****************************************************/
+     ***********************************************************/
     fetch("https://script.google.com/macros/s/AKfycbxprxG-MDgk1ULTdQFAjpDr8_wPGkNnTmVjoawzUeGAFKRC-LgUPtRoTiBKVCWvQRAy/exec")
       .then(r=>r.json())
       .then(data=>{
-        markersData=data;
-        // Стартуем: показываем все (selectedStatuses=[])
+        markersData= data;
+        // colorMode='status' => выбрано по умолчанию
+        // Пустые массивы => показываем все
         applyCombinedFilter();
       })
-      .catch(e=> console.error("Ошибка:", e));
+      .catch(e=> console.error("Ошибка загрузки:", e));
 
-    /****************************************************
-     * 7) ОТКРЫТИЕ/ЗАКРЫТИЕ НИЖНЕЙ ПАНЕЛИ (ЛЕГЕНДА)
-     ****************************************************/
+    /***********************************************************
+     * 7) ЛЕГЕНДА
+     ***********************************************************/
     const overlay= document.getElementById("overlay");
     const bottomPanel= document.getElementById("bottomPanel");
 
     function togglePanel(title, content){
-      const panelTitle= document.getElementById("panelTitle");
-      const panelContent= document.getElementById("panelContent");
+      const panelTitle   = document.getElementById("panelTitle");
+      const panelContent = document.getElementById("panelContent");
       if(bottomPanel.classList.contains("active") && panelTitle.innerText===title){
         closePanel();
       } else {
-        panelTitle.innerText=title;
+        panelTitle.innerText= title;
         panelContent.innerHTML= content;
         bottomPanel.classList.add("active");
         overlay.style.display="block";
@@ -559,7 +557,7 @@
     }
     overlay.addEventListener("click", closePanel);
 
-    document.getElementById("legendToggle").addEventListener("click",()=>{
+    document.getElementById("legendToggle").addEventListener("click", ()=>{
       // Полная легенда
       const legendHtml=`
         <div class="legend-section">
@@ -597,37 +595,37 @@
           <div class="legend-row">
             <div class="legend-icon" style="background-color:#99ccff;"></div> Апрель
           </div>
-          <!-- и т.д. -->
+          <!-- ...другие месяцы... -->
         </div>
         <div class="legend-section">
           <div class="legend-title">Многоцветный кластер</div>
           <div class="legend-row">
-            <div class="legend-icon" style="background-color:#FFF;"></div> Если разный цвет
+            <div class="legend-icon" style="background-color:#FFF;"></div> Разные цвета
           </div>
         </div>
       `;
       togglePanel("Легенда", legendHtml);
     });
 
-    /****************************************************
-     * 8) ФИЛЬТР «СОСТОЯНИЕ»
-     ****************************************************/
+    /***********************************************************
+     * 8) ФИЛЬТР "СОСТОЯНИЕ"
+     ***********************************************************/
     document.getElementById("statusToggle").addEventListener("click", ()=>{
-      // colorMode='status'
-      // Сбрасываем рекламу, план
+      // переключаем colorMode='status'
       colorMode='status';
+      // сброс других
       selectedReklamas=[];
       selectedPlans=[];
 
       let html=`<div class="filter-buttons">`;
       allStatuses.forEach(st=>{
-        const active= selectedStatuses.includes(st)? "active":"";
-        html += `<button class="${active}" onclick="toggleStatus('${st}')">${st}</button>`;
+        const active= selectedStatuses.includes(st)?"active":"";
+        html+= `<button class="${active}" onclick="toggleStatus('${st}')">${st}</button>`;
       });
-      html += `<button onclick="clearStatuses()">Очистить</button>`;
-      html += `</div>`;
-
+      html+= `<button onclick="clearStatuses()">Очистить</button>`;
+      html+= `</div>`;
       togglePanel("Состояние", html);
+
       applyCombinedFilter();
     });
     window.toggleStatus= function(st){
@@ -637,7 +635,7 @@
         selectedStatuses.push(st);
       }
       applyCombinedFilter();
-      document.getElementById("statusToggle").click(); 
+      document.getElementById("statusToggle").click();
     };
     window.clearStatuses= function(){
       selectedStatuses=[];
@@ -645,12 +643,13 @@
       document.getElementById("statusToggle").click();
     };
 
-    /****************************************************
-     * 9) ФИЛЬТР «РЕКЛАМА»
-     ****************************************************/
-    document.getElementById("reklamaToggle").addEventListener("click",()=>{
+    /***********************************************************
+     * 9) ФИЛЬТР "РЕКЛАМА"
+     ***********************************************************/
+    document.getElementById("reklamaToggle").addEventListener("click", ()=>{
       // colorMode='reklama'
       colorMode='reklama';
+      // сброс статусы/план
       selectedStatuses=[];
       selectedPlans=[];
 
@@ -680,18 +679,17 @@
       document.getElementById("reklamaToggle").click();
     };
 
-    /****************************************************
-     * 10) ФИЛЬТР «ПЛАН»
-     ****************************************************/
-    document.getElementById("planToggle").addEventListener("click",()=>{
-      // colorMode='plan'
+    /***********************************************************
+     * 10) ФИЛЬТР "ПЛАН"
+     ***********************************************************/
+    document.getElementById("planToggle").addEventListener("click", ()=>{
       colorMode='plan';
       selectedStatuses=[];
       selectedReklamas=[];
 
       let html=`<div class="filter-buttons">`;
       planMonths.forEach(m=>{
-        const cap= m.charAt(0).toUpperCase()+ m.slice(1);
+        const cap= m.charAt(0).toUpperCase()+m.slice(1);
         const active= selectedPlans.includes(m)?"active":"";
         html+= `<button class="${active}" onclick="togglePlan('${m}')">${cap}</button>`;
       });
@@ -716,9 +714,9 @@
       document.getElementById("planToggle").click();
     };
 
-    /****************************************************
+    /***********************************************************
      * 11) ПОИСК
-     ****************************************************/
+     ***********************************************************/
     document.getElementById("searchBtn").addEventListener("click", doSearch);
     document.getElementById("searchInput").addEventListener("keypress", e=>{
       if(e.key==="Enter") doSearch();
@@ -726,23 +724,26 @@
     function doSearch(){
       const query= document.getElementById("searchInput").value.toLowerCase().trim();
       if(!query){
+        // Пусто -> вернуть отфильтрованное
         applyCombinedFilter();
         return;
       }
-      // Фильтруем markersData (учитывая выбранные статусы/рекламы/план)
+      // Ищем по stopName / tablo, учитывая текущие фильтры
       const filtered= markersData.filter(m=>{
-        // Проверка статуса
+        // Проверяем статус
         const s=(m.status||"").toLowerCase().trim();
         if(selectedStatuses.length>0 && !selectedStatuses.includes(s)) return false;
 
+        // Реклама
         let r=(m.reklama||"").toLowerCase().replace(/\s/g,'');
         if(["x","(x)нет","none","xнет"].includes(r)) r='нет';
         if(selectedReklamas.length>0 && !selectedReklamas.includes(r)) return false;
 
+        // План
         const p=(m.plan||"").toLowerCase().trim();
         if(selectedPlans.length>0 && !selectedPlans.includes(p)) return false;
 
-        // Теперь поиск
+        // Поиск
         const stopNameVal=(m.stopName||"").toLowerCase();
         const tabloVal= String(m.tablo||"").toLowerCase();
         return stopNameVal.includes(query) || tabloVal.includes(query);
