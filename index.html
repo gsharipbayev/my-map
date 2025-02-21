@@ -35,18 +35,18 @@
       z-index: 0;
     }
     .leaflet-top.leaflet-left {
-      margin-top: 70px;
+      margin-top: 70px; /* чтобы кнопки зума не перекрывали панель поиска */
     }
 
     /*---------------------------------------------
-      1) Полоса-активатор + авто-скрывающаяся панель
+      1) Полоса-активатор + (теперь панель не скрываем)
     ----------------------------------------------*/
     #searchActivator {
       position: fixed;
       top: 0;
       left: 0;
       right: 0;
-      height: 10px; /* узкая "полоса" */
+      height: 10px; 
       z-index: 3000;
     }
     #topSearchBar {
@@ -64,6 +64,7 @@
       align-items: center;
       transition: top 0.3s;
     }
+    /* При .show панель выезжает */
     #topSearchBar.show {
       top: 0;
     }
@@ -289,33 +290,21 @@
 
   <script>
     /***********************************************************
-     * 1) АВТО-СКРЫТИЕ/ПОЯВЛЕНИЕ ВЕРХНЕЙ ПАНЕЛИ
+     * 1) Показ/спрятать панель поиска (УБРАНО скрытие при вводе)
      ***********************************************************/
     const searchActivator = document.getElementById("searchActivator");
     const topSearchBar = document.getElementById("topSearchBar");
-    let hideTimer = null;
 
-    function showSearchBar() {
-      clearTimeout(hideTimer);
+    // Когда наводим на самую верхнюю полосу - показываем
+    searchActivator.addEventListener("mouseenter", () => {
       topSearchBar.classList.add("show");
-    }
-    function hideSearchBar() {
-      topSearchBar.classList.remove("show");
-    }
-    function startHideTimer() {
-      hideTimer = setTimeout(hideSearchBar, 2000);
-    }
+    });
+    // УБРАНО всё, что скрывало панель.
 
-    // Наведение мыши на зону
-    searchActivator.addEventListener("mouseenter", showSearchBar);
-    // Уход мыши
-    searchActivator.addEventListener("mouseleave", startHideTimer);
-    // Для мобильного (tap)
-    searchActivator.addEventListener("touchstart", showSearchBar, { passive: true });
-    // Если мышь ушла с самой панели
-    topSearchBar.addEventListener("mouseleave", startHideTimer);
-    // На мобильном тапнули внутри панели — сбрасываем таймер
-    topSearchBar.addEventListener("touchstart", () => clearTimeout(hideTimer), { passive: true });
+    // На мобильном касание тоже покажет
+    searchActivator.addEventListener("touchstart", () => {
+      topSearchBar.classList.add("show");
+    }, { passive: true });
 
     /***********************************************************
      * 2) ИНИЦИАЛИЗАЦИЯ КАРТЫ
@@ -337,16 +326,13 @@
     let selectedReklamas = [];
     let selectedPlans    = [];
 
-    // Варианты для фильтров (в нижнем регистре!)
+    // Варианты для фильтров
     const allStatuses = ["работает","не работает","снят табло","демонтирован"];
     const allReklamas = ["led","lightbox","нет"];
-    // Для раскраски план
     const planMonths  = [
       "март","апрель","май","июнь","июль","август",
       "сентябрь","октябрь","ноябрь","декабрь"
     ];
-
-    // Цвета «План» (в легенде/маркер)
     const planColors = {
       "март": "#cce5ff",    "апрель": "#99ccff",
       "май": "#66b3ff",     "июнь": "#3399ff",
@@ -356,35 +342,32 @@
     };
 
     /***********************************************************
-     * 4) ФУНКЦИИ ОПРЕДЕЛЕНИЯ ЦВЕТОВ
+     * 4) ФУНКЦИИ ОПРЕДЕЛЕНИЯ ЦВЕТОВ (раскрашиваем по Плану)
      ***********************************************************/
     function getPlanColor(plan) {
       if (!plan) return "#CCCCCC";
       const key = plan.toLowerCase().trim();
       return planColors[key] || "#CCCCCC";
     }
-
-    // Сейчас раскрашиваем именно по «Плану»
     function getMarkerColor(m) {
-      // план в m.plan
       return getPlanColor(m.plan);
     }
 
     /***********************************************************
-     * 5) ФИЛЬТРАЦИЯ (комбинированная)
+     * 5) ФИЛЬТРАЦИЯ
      ***********************************************************/
     function applyCombinedFilter() {
       const filtered = markersData.filter(m => {
-        // Статус
+        // СТАТУС
         const st = (m.status || "").toLowerCase().trim();
         const passStatus = (selectedStatuses.length === 0) || selectedStatuses.includes(st);
 
-        // Реклама
+        // РЕКЛАМА
         let rec = (m.reklama || "").toLowerCase().replace(/\s/g, "");
         if (["x","(x)нет","none","xнет"].includes(rec)) rec = "нет";
         const passReklama = (selectedReklamas.length === 0) || selectedReklamas.includes(rec);
 
-        // План
+        // ПЛАН
         const planVal = (m.plan || "").toLowerCase().trim();
         const passPlan = (selectedPlans.length === 0) || selectedPlans.includes(planVal);
 
@@ -394,13 +377,11 @@
       addMarkers(filtered);
       updateLabels(filtered.length);
 
-      // Подсветка нижних кнопок
+      // Подсветка кнопок
       highlightFilterButton("statusToggle",  selectedStatuses.length > 0);
       highlightFilterButton("reklamaToggle", selectedReklamas.length > 0);
       highlightFilterButton("planToggle",    selectedPlans.length    > 0);
     }
-
-    // Обновить счётчики
     function updateLabels(count) {
       document.getElementById("statusLabel").innerText  = `Все (${count})`;
       document.getElementById("reklamaLabel").innerText = `Все (${count})`;
@@ -423,7 +404,6 @@
       data.forEach(item => {
         const color = getMarkerColor(item);
 
-        // Если хотим, чтобы «медиаборд» был квадрат:
         let shapeStyle = "border-radius:50%;";
         if (item.tabloInfo && item.tabloInfo.toLowerCase().includes("медиаборд")) {
           shapeStyle = "border-radius:0%;";
@@ -441,39 +421,33 @@
         `;
         const icon = L.divIcon({ html, iconSize: [iconSize, iconSize] });
 
-        // Координаты
         const lat = parseFloat(item.lat) || 51.0;
         const lng = parseFloat(item.lng) || 71.4;
 
-        // Создаём маркер
         const marker = L.marker([lat, lng], { icon });
 
-        // 3) Изменяем содержимое попапа под ваш шаблон
-        // Пример:
-        // Улица Е319
+        // Попап (Ваша новая структура)
+        // Улица Е319 (полужирный, больше размер)
         // ID Табло: 12344
-        // Наименование улицы: Проспект Мангилик Ел
-        // Направление: ул. Сарайшык
-        //
-        // Район: есиль
-        // Статус: работает
-        // Реклама: LED
-        //
-        // План: Апрель
+        // Улица: Проспект ...
+        // Направление: ...
+        // Район: ...
+        // Статус: ...
+        // Реклама: ...
+        // План: ...
         const popup = `
-          Улица: ${item.number || "-"}<br>
+          <div style="font-weight:bold; font-size:1.1em;">
+            Улица ${item.number || "-"}
+          </div>
           ID Табло: ${item.tablo || "-"}<br>
-          Наименование улицы: ${item.street || "-"}<br>
+          Улица: ${item.street || "-"}<br>
           Направление: ${item.direction || "-"}<br>
-          <br>
           Район: ${item.district || "-"}<br>
           Статус: ${item.status || "-"}<br>
           Реклама: ${item.reklama || "-"}<br>
-          <br>
           План: ${item.plan || "-"}
         `;
         marker.bindPopup(popup);
-
         markerClusterGroup.addLayer(marker);
       });
     }
@@ -482,14 +456,12 @@
     }
 
     /***********************************************************
-     * 7) ЗАГРУЗКА ДАННЫХ (пример)
+     * 7) ЗАГРУЗКА ДАННЫХ
      ***********************************************************/
     fetch("https://script.google.com/macros/s/AKfycbxprxG-MDgk1ULTdQFAjpDr8_wPGkNnTmVjoawzUeGAFKRC-LgUPtRoTiBKVCWvQRAy/exec")
       .then(r => r.json())
       .then(data => {
         markersData = data;
-        // Можно посмотреть в консоль:
-        // console.log("Получено:", data);
         addMarkers(markersData);
         updateLabels(markersData.length);
       })
@@ -521,11 +493,11 @@
     overlay.addEventListener("click", closePanel);
 
     /***********************************************************
-     * 9) ЛЕГЕНДА (цвета «План»)
+     * 9) ЛЕГЕНДА
      ***********************************************************/
     document.getElementById("legendToggle").addEventListener("click", () => {
       const legendPlan = planMonths.map(m => {
-        const cap = m.charAt(0).toUpperCase() + m.slice(1); // «март» -> «Март»
+        const cap = m.charAt(0).toUpperCase() + m.slice(1);
         return `
           <div class="legend-row">
             <div class="legend-icon" style="background-color:${getPlanColor(m)};"></div>
@@ -539,12 +511,8 @@
           <div class="legend-title">План</div>
           ${legendPlan}
         </div>
-      `;
-      // Если нужно добавить ещё (Статус, Реклама), прикрепляем блоки.
-      // Например:
-      const statusBlock = `
         <div class="legend-section">
-          <div class="legend-title">Состояние (пример)</div>
+          <div class="legend-title">Статус (пример)</div>
           <div class="legend-row">
             <div class="legend-icon" style="background-color:#00FF00;"></div> Работает
           </div>
@@ -558,8 +526,6 @@
             <div class="legend-icon" style="background-color:#555555;"></div> Демонтирован
           </div>
         </div>
-      `;
-      const reklamaBlock = `
         <div class="legend-section">
           <div class="legend-title">Реклама</div>
           <div class="legend-row">
@@ -573,8 +539,7 @@
           </div>
         </div>
       `;
-
-      togglePanel("Легенда", legendHtml + statusBlock + reklamaBlock);
+      togglePanel("Легенда", legendHtml);
     });
 
     /***********************************************************
@@ -663,7 +628,7 @@
     };
 
     /***********************************************************
-     * 13) ПОИСК (исправлено: преобразуем tablo к строке)
+     * 13) ПОИСК (НЕ СКРЫВАЕМ ПАНЕЛЬ ПРИ ВВОДЕ)
      ***********************************************************/
     document.getElementById("searchBtn").addEventListener("click", doSearch);
     document.getElementById("searchInput").addEventListener("keypress", e => {
@@ -675,7 +640,7 @@
         applyCombinedFilter();
         return;
       }
-      // Исправлено: принудительно переводим tablo в строку (String(...))
+      // Приводим tablo к строке
       const filtered = markersData.filter(m => {
         const stopNameVal = (m.stopName || "").toLowerCase();
         const tabloVal    = String(m.tablo || "").toLowerCase();
