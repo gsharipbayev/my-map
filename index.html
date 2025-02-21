@@ -35,18 +35,18 @@
       z-index: 0;
     }
     .leaflet-top.leaflet-left {
-      margin-top: 70px;
+      margin-top: 70px; 
     }
 
     /*---------------------------------------------
-      1) Панель поиска (теперь не скрывается при вводе)
+      1) Полоса-активатор, панель поиска
     ----------------------------------------------*/
     #searchActivator {
       position: fixed;
       top: 0;
       left: 0;
       right: 0;
-      height: 10px;
+      height: 10px; 
       z-index: 3000;
     }
     #topSearchBar {
@@ -160,7 +160,7 @@
     }
 
     /*---------------------------------------------
-      4) Фильтры – кнопки
+      4) Кнопки фильтров
     ----------------------------------------------*/
     .filter-buttons {
       display: flex;
@@ -215,10 +215,9 @@
     }
 
     /*---------------------------------------------
-      6) Настройка кластера (цвет + disable overlap)
+      6) Кластер (иконка)
     ----------------------------------------------*/
     .cluster-icon {
-      /* Можно чуть подправить стили кластера */
       font-weight: bold;
     }
 
@@ -297,11 +296,10 @@
 
   <script>
     /***********************************************************
-     * 1) Показ панели поиска (не скрываем при вводе)
+     * 1) Показ панели поиска
      ***********************************************************/
     const searchActivator = document.getElementById("searchActivator");
     const topSearchBar = document.getElementById("topSearchBar");
-    // При наведении/тапе — показываем
     searchActivator.addEventListener("mouseenter", () => {
       topSearchBar.classList.add("show");
     });
@@ -312,11 +310,9 @@
     /***********************************************************
      * 2) ИНИЦИАЛИЗАЦИЯ КАРТЫ + КЛАСТЕРИЗАЦИЯ
      ***********************************************************/
-    // Создаём кастомный MarkerClusterGroup, чтобы повторить цвет
-    // и чтобы кластеры образовывались только при сильном наложении
-    // (maxClusterRadius: 20 — если маркеры ближе 20px, они группируются)
+    // Увеличим радиус кластеризации до 40 пикселей (раньше было 20).
     const markerClusterGroup = L.markerClusterGroup({
-      maxClusterRadius: 20,
+      maxClusterRadius: 40,
       iconCreateFunction: cluster => {
         const markers = cluster.getAllChildMarkers();
         // Берём цвет первого
@@ -328,7 +324,7 @@
           }
         }
         const count = cluster.getChildCount();
-        // Создаём divIcon
+        // Создаём divIcon для кластера
         return L.divIcon({
           html: `<div style="
             background-color:${chosenColor};
@@ -345,7 +341,7 @@
       },
     });
 
-    // Инициализация карты
+    // Карта
     const map = L.map("map").setView([51.09, 71.45], 11);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
@@ -354,20 +350,46 @@
     map.addLayer(markerClusterGroup);
 
     /***********************************************************
-     * 3) ДАННЫЕ И ПЕРЕМЕННЫЕ ДЛЯ ФИЛЬТРОВ
+     * 3) ДАННЫЕ И ФИЛЬТРЫ
      ***********************************************************/
     let markersData = [];
 
+    // Фильтры
     let selectedStatuses = [];
     let selectedReklamas = [];
     let selectedPlans    = [];
 
+    // Опции фильтров (в нижнем регистре)
     const allStatuses = ["работает","не работает","снят табло","демонтирован"];
     const allReklamas = ["led","lightbox","нет"];
     const planMonths  = [
       "март","апрель","май","июнь","июль","август",
       "сентябрь","октябрь","ноябрь","декабрь"
     ];
+
+    // Цвета для статуса
+    function getStatusColor(status) {
+      const s = (status || "").toLowerCase().trim();
+      switch (s) {
+        case "работает":       return "#00FF00";  // зелёный
+        case "не работает":    return "#FF0000";  // красный
+        case "снят табло":     return "#D3D3D3";  // светло-серый
+        case "демонтирован":   return "#555555";  // тёмно-серый
+        default:               return "#FFFFFF";  // fallback
+      }
+    }
+    // Цвета для рекламы
+    function getReklamaColor(reklama) {
+      let r = (reklama || "").toLowerCase().replace(/\s/g, "");
+      if (["x","(x)нет","none","xнет"].includes(r)) r = "нет";
+      switch (r) {
+        case "led":       return "#FFA500"; // оранжевый
+        case "lightbox":  return "#800080"; // фиолетовый
+        case "нет":       return "#00FFFF"; // бирюзовый (cyan)
+        default:          return "#000000";
+      }
+    }
+    // План — градиент синий
     const planColors = {
       "март": "#cce5ff",    "апрель": "#99ccff",
       "май": "#66b3ff",     "июнь": "#3399ff",
@@ -375,12 +397,15 @@
       "сентябрь": "#0052a3","октябрь": "#003d7a",
       "ноябрь": "#002952",  "декабрь": "#001429",
     };
-
-    // Получаем цвет по «Плану»
     function getPlanColor(plan) {
       if (!plan) return "#CCCCCC";
       const key = plan.toLowerCase().trim();
       return planColors[key] || "#CCCCCC";
+    }
+
+    // По умолчанию — цвет маркера = цвет статуса
+    function getMarkerColor(m) {
+      return getStatusColor(m.status);
     }
 
     /***********************************************************
@@ -388,16 +413,16 @@
      ***********************************************************/
     function applyCombinedFilter() {
       const filtered = markersData.filter(m => {
-        // СТАТУС
-        const st = (m.status || "").toLowerCase().trim();
-        const passStatus = (selectedStatuses.length === 0) || selectedStatuses.includes(st);
+        // Статус
+        const s = (m.status || "").toLowerCase().trim();
+        const passStatus = (selectedStatuses.length === 0) || selectedStatuses.includes(s);
 
-        // РЕКЛАМА
+        // Реклама
         let rec = (m.reklama || "").toLowerCase().replace(/\s/g, "");
         if (["x","(x)нет","none","xнет"].includes(rec)) rec = "нет";
         const passReklama = (selectedReklamas.length === 0) || selectedReklamas.includes(rec);
 
-        // ПЛАН
+        // План
         const planVal = (m.plan || "").toLowerCase().trim();
         const passPlan = (selectedPlans.length === 0) || selectedPlans.includes(planVal);
 
@@ -407,10 +432,12 @@
       addMarkers(filtered);
       updateLabels(filtered.length);
 
+      // Подсветка кнопок
       highlightFilterButton("statusToggle",  selectedStatuses.length > 0);
       highlightFilterButton("reklamaToggle", selectedReklamas.length > 0);
       highlightFilterButton("planToggle",    selectedPlans.length    > 0);
     }
+
     function updateLabels(count) {
       document.getElementById("statusLabel").innerText  = `Все (${count})`;
       document.getElementById("reklamaLabel").innerText = `Все (${count})`;
@@ -429,18 +456,18 @@
      * 5) ДОБАВЛЕНИЕ/УДАЛЕНИЕ МАРКЕРОВ
      ***********************************************************/
     function addMarkers(data) {
-      // Сначала очищаем
       markerClusterGroup.clearLayers();
 
       data.forEach(item => {
-        // Цвет маркера берём из «План»
-        const color = getPlanColor(item.plan);
+        // Берём цвет маркера = по статусу
+        const color = getMarkerColor(item);
 
-        // Создаём HTML для кружочка (или квадрата)
+        // Если tabloInfo содержит «медиаборд» — рисуем квадрат
         let shapeStyle = "border-radius:50%;";
         if (item.tabloInfo && item.tabloInfo.toLowerCase().includes("медиаборд")) {
           shapeStyle = "border-radius:0%;";
         }
+
         const iconSize = 20;
         const html = `
           <div style="
@@ -451,30 +478,20 @@
             ${shapeStyle}
           "></div>
         `;
+        const icon = L.divIcon({ html, iconSize: [iconSize, iconSize] });
 
-        // Создаём divIcon
-        const icon = L.divIcon({
-          html,
-          iconSize: [iconSize, iconSize],
-        });
-
-        // Координаты
         const lat = parseFloat(item.lat) || 51.0;
         const lng = parseFloat(item.lng) || 71.4;
-
-        // Создаём сам маркер
         const marker = L.marker([lat, lng], { icon });
 
-        // Сохраняем цвет в свойство myColor, чтобы кластер мог подобрать цвет
+        // Чтобы кластер мог узнать цвет
         marker.myColor = color;
 
-        // Формируем попап:
-        // 1) Большой полужирный text = stopName (пример: «Улица Е319»)
-        // 2) Остальные поля подряд
-        const stopNameStr = item.stopName || "Не указано";
+        // Попап: первая строка — название остановки (полужирный, чуть больше)
+        const stopName = item.stopName || "(Остановка не указана)";
         const popup = `
           <div style="font-weight:bold; font-size:1.1em;">
-            ${stopNameStr}
+            ${stopName}
           </div>
           ID Табло: ${item.tablo || "-"}<br>
           Улица: ${item.street || "-"}<br>
@@ -486,13 +503,12 @@
         `;
         marker.bindPopup(popup);
 
-        // Добавляем в MarkerClusterGroup
         markerClusterGroup.addLayer(marker);
       });
     }
 
     /***********************************************************
-     * 6) ЗАГРУЗКА ДАННЫХ ИЗ APPS SCRIPT
+     * 6) ЗАГРУЗКА ДАННЫХ (Apps Script URL)
      ***********************************************************/
     fetch("https://script.google.com/macros/s/AKfycbxprxG-MDgk1ULTdQFAjpDr8_wPGkNnTmVjoawzUeGAFKRC-LgUPtRoTiBKVCWvQRAy/exec")
       .then(r => r.json())
@@ -504,7 +520,7 @@
       .catch(e => console.error("Ошибка загрузки:", e));
 
     /***********************************************************
-     * 7) ОТКРЫТИЕ/ЗАКРЫТИЕ НИЖНЕЙ ПАНЕЛИ (ЛЕГЕНДА/ФИЛЬТРЫ)
+     * 7) ОТКРЫТИЕ/ЗАКРЫТИЕ НИЖНЕЙ ПАНЕЛИ
      ***********************************************************/
     const overlay = document.getElementById("overlay");
     const bottomPanel = document.getElementById("bottomPanel");
@@ -529,10 +545,10 @@
     overlay.addEventListener("click", closePanel);
 
     /***********************************************************
-     * 8) ЛЕГЕНДА
+     * 8) ЛЕГЕНДА (цвета для Статуса, Рекламы, Плана)
      ***********************************************************/
     document.getElementById("legendToggle").addEventListener("click", () => {
-      const legendPlan = planMonths.map(m => {
+      const planLegend = planMonths.map(m => {
         const cap = m.charAt(0).toUpperCase() + m.slice(1);
         return `
           <div class="legend-row">
@@ -544,11 +560,7 @@
 
       const legendHtml = `
         <div class="legend-section">
-          <div class="legend-title">План</div>
-          ${legendPlan}
-        </div>
-        <div class="legend-section">
-          <div class="legend-title">Статус (пример)</div>
+          <div class="legend-title">Статус</div>
           <div class="legend-row">
             <div class="legend-icon" style="background-color:#00FF00;"></div> Работает
           </div>
@@ -573,6 +585,10 @@
           <div class="legend-row">
             <div class="legend-icon" style="background-color:#00FFFF;"></div> Нет
           </div>
+        </div>
+        <div class="legend-section">
+          <div class="legend-title">План</div>
+          ${planLegend}
         </div>
       `;
       togglePanel("Легенда", legendHtml);
@@ -664,7 +680,7 @@
     };
 
     /***********************************************************
-     * 12) ПОИСК (по остановке/ID)
+     * 12) ПОИСК ПО ID ТАБЛО / НАЗВАНИЮ ОСТАНОВКИ
      ***********************************************************/
     document.getElementById("searchBtn").addEventListener("click", doSearch);
     document.getElementById("searchInput").addEventListener("keypress", e => {
@@ -678,7 +694,7 @@
       }
       const filtered = markersData.filter(m => {
         const stopNameVal = (m.stopName || "").toLowerCase();
-        const tabloVal = String(m.tablo || "").toLowerCase();
+        const tabloVal    = String(m.tablo || "").toLowerCase();
         return stopNameVal.includes(query) || tabloVal.includes(query);
       });
       addMarkers(filtered);
