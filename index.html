@@ -343,24 +343,26 @@
     let selectedReklamas = [];
     let selectedPlans    = [];
 
+    // Все значения в нижнем регистре, чтобы было проще фильтровать
     const allStatuses = ["работает","не работает","снят табло","демонтирован"];
     const allReklamas = ["led","lightbox","нет"];
+    // Здесь все тоже в нижнем регистре
     const planMonths  = [
-      "Март","Апрель","Май","Июнь","Июль","Август",
-      "Сентябрь","Октябрь","Ноябрь","Декабрь"
+      "март","апрель","май","июнь","июль","август",
+      "сентябрь","октябрь","ноябрь","декабрь"
     ];
 
-    // Пример цветов для плана (если нужно)
+    // Пример цветов для плана (ключи в том же регистре!)
     const planColors = {
-      март: "#cce5ff", апрель: "#99ccff",
-      май: "#66b3ff",  июнь: "#3399ff",
-      июль: "#0080ff", август: "#0066cc",
-      сентябрь: "#0052a3", октябрь: "#003d7a",
-      ноябрь: "#002952",   декабрь: "#001429",
+      "март": "#cce5ff",    "апрель": "#99ccff",
+      "май": "#66b3ff",     "июнь": "#3399ff",
+      "июль": "#0080ff",    "август": "#0066cc",
+      "сентябрь": "#0052a3","октябрь": "#003d7a",
+      "ноябрь": "#002952",  "декабрь": "#001429",
     };
 
     /***********************************************************
-     * 4) ФУНКЦИИ ОПРЕДЕЛЕНИЯ ЦВЕТОВ (если требуется)
+     * 4) ФУНКЦИИ ОПРЕДЕЛЕНИЯ ЦВЕТОВ
      ***********************************************************/
     function getPlanColor(plan) {
       if (!plan) return "#CCCCCC";
@@ -372,7 +374,6 @@
       switch (s) {
         case "работает":       return "#00FF00";
         case "не работает":    return "#FF0000";
-        case "снят":
         case "снят табло":     return "#D3D3D3";
         case "демонтирован":   return "#555555";
         default:               return "#FFFFFF";
@@ -408,12 +409,13 @@
         if (["x","(x)нет","none","xнет"].includes(rec)) rec = "нет";
         const passReklama = (selectedReklamas.length === 0) || selectedReklamas.includes(rec);
 
-        // ПЛАН
-        const p = (m.plan || "").trim();
-        const passPlan = (selectedPlans.length === 0) || selectedPlans.includes(p);
+        // ПЛАН (приводим к нижнему регистру)
+        const planVal = (m.plan || "").toLowerCase().trim();
+        const passPlan = (selectedPlans.length === 0) || selectedPlans.includes(planVal);
 
         return passStatus && passReklama && passPlan;
       });
+
       addMarkers(filtered);
       updateLabels(filtered.length);
 
@@ -470,7 +472,7 @@
         const marker = L.marker([lat, lng], { icon });
         const popup = `
           <strong>${item.stopName || item.stop || "Остановка не указана"}</strong><br>
-          ID: ${item.stopId || item.id || "не указан"}<br>
+          ID Табло: ${item.tablo || "не указан"}<br>
           Район: ${item.district || "не указан"}<br>
           Статус: ${item.status || "не указан"}<br>
           Реклама: ${item.reklama || "не указана"}<br>
@@ -506,6 +508,7 @@
       const panelTitle = document.getElementById("panelTitle");
       const panelContent = document.getElementById("panelContent");
 
+      // Если уже открыта эта же панель — закрываем
       if (bottomPanel.classList.contains("active") && panelTitle.innerText === title) {
         closePanel();
       } else {
@@ -525,6 +528,17 @@
      * 9) ЛЕГЕНДА
      ***********************************************************/
     document.getElementById("legendToggle").addEventListener("click", () => {
+      // Красивый вывод месяцев с заглавной буквы
+      const legendPlan = planMonths.map(m => {
+        const cap = m.charAt(0).toUpperCase() + m.slice(1); // "март" -> "Март"
+        return `
+          <div class="legend-row">
+            <div class="legend-icon" style="background-color:${getPlanColor(m)};"></div>
+            ${cap}
+          </div>
+        `;
+      }).join("");
+
       const legendHtml = `
         <div class="legend-section">
           <div class="legend-title">Состояние</div>
@@ -555,14 +569,7 @@
         </div>
         <div class="legend-section">
           <div class="legend-title">План</div>
-          ${
-            planMonths.map(m => `
-              <div class="legend-row">
-                <div class="legend-icon" style="background-color:${getPlanColor(m)};"></div>
-                ${m}
-              </div>
-            `).join("")
-          }
+          ${legendPlan}
         </div>
       `;
       togglePanel("Легенда", legendHtml);
@@ -588,7 +595,8 @@
         selectedStatuses.push(st);
       }
       applyCombinedFilter();
-      document.getElementById("statusToggle").click(); // перезапустить панель
+      // Для обновления вида кнопок заново открываем ту же панель
+      document.getElementById("statusToggle").click();
     };
     window.clearStatuses = function() {
       selectedStatuses = [];
@@ -631,7 +639,9 @@
       let html = `<div class="filter-buttons">`;
       planMonths.forEach(m => {
         const active = selectedPlans.includes(m) ? "active" : "";
-        html += `<button class="${active}" onclick="togglePlan('${m}')">${m}</button>`;
+        // Выводим в кнопке тоже с заглавной буквы
+        const cap = m.charAt(0).toUpperCase() + m.slice(1);
+        html += `<button class="${active}" onclick="togglePlan('${m}')">${cap}</button>`;
       });
       html += `<button onclick="clearPlans()">Очистить</button>`;
       html += `</div>`;
@@ -662,14 +672,15 @@
     function doSearch() {
       const query = document.getElementById("searchInput").value.toLowerCase().trim();
       if (!query) {
-        // Пустой -> вернуть отфильтрованный набор
+        // Пустой запрос -> вернуть отфильтрованный набор
         applyCombinedFilter();
         return;
       }
       const filtered = markersData.filter(m => {
-        const stopName = (m.stopName || m.stop || "").toLowerCase();
-        const stopId   = (m.stopId   || m.id   || "").toLowerCase();
-        return stopName.includes(query) || stopId.includes(query);
+        // Поиск по названию и ID Табло
+        const stopNameVal = (m.stopName || m.stop || "").toLowerCase();
+        const tabloVal    = (m.tablo || "").toLowerCase();
+        return stopNameVal.includes(query) || tabloVal.includes(query);
       });
       addMarkers(filtered);
       updateLabels(filtered.length);
