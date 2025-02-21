@@ -1,8 +1,7 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
   <meta charset="utf-8" />
-  <!-- Для корректного отображения на мобильных -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Leaflet Map (Sheets + Apps Script)</title>
 
@@ -43,7 +42,6 @@
     /*---------------------------------------------
       1) Полоса-активатор + авто-скрывающаяся панель
     ----------------------------------------------*/
-    /* Невидимая полоска вверху, на которую наводим для показа поиска */
     #searchActivator {
       position: fixed;
       top: 0;
@@ -52,7 +50,6 @@
       height: 10px; /* узкая "полоса" */
       z-index: 3000;
     }
-    /* Верхняя панель поиска (авто-скрывающаяся) */
     #topSearchBar {
       position: fixed;
       top: -70px; /* спрятана за верх */
@@ -68,7 +65,6 @@
       align-items: center;
       transition: top 0.3s;
     }
-    /* Класс, при котором панель выезжает */
     #topSearchBar.show {
       top: 0;
     }
@@ -115,7 +111,6 @@
       transition: background-color 0.3s;
       text-align: center;
     }
-    /* Подсветка, если в фильтре что-то выбрано */
     .btn.active-filter {
       background-color: #0056b3;
     }
@@ -343,7 +338,7 @@
     let selectedReklamas = [];
     let selectedPlans    = [];
 
-    // Все значения в нижнем регистре для упрощения фильтра
+    // Варианты для фильтров (в нижнем регистре)
     const allStatuses = ["работает","не работает","снят табло","демонтирован"];
     const allReklamas = ["led","lightbox","нет"];
     const planMonths  = [
@@ -351,7 +346,7 @@
       "сентябрь","октябрь","ноябрь","декабрь"
     ];
 
-    // Пример цветов для плана
+    // Цвета для Плана
     const planColors = {
       "март": "#cce5ff",    "апрель": "#99ccff",
       "май": "#66b3ff",     "июнь": "#3399ff",
@@ -378,6 +373,7 @@
         default:               return "#FFFFFF";
       }
     }
+    // Если понадобится для фильтра рекламы
     function getReklamaColor(reklama) {
       let rec = (reklama || "").toLowerCase().replace(/\s/g, "");
       if (["x","(x)нет","none","xнет"].includes(rec)) rec = "нет";
@@ -430,7 +426,6 @@
       document.getElementById("reklamaLabel").innerText = `Все (${count})`;
       document.getElementById("planLabel").innerText    = `Все (${count})`;
     }
-
     // Подсветка активных кнопок
     function highlightFilterButton(btnId, isActive) {
       const btn = document.getElementById(btnId);
@@ -449,8 +444,8 @@
       data.forEach(item => {
         const color = getMarkerColor(item);
 
-        // Если tabloInfo (M-столбец) содержит «медиаборд», делаем квадрат
-        // (Это пример логики, если вам нужно отличать медиаборд по форме)
+        // Если табло информирование (tabloInfo) упоминает «медиаборд», делаем квадрат
+        // (пример логики, если вам нужно различать медиаборд)
         let shapeStyle = "border-radius:50%;";
         if (item.tabloInfo && item.tabloInfo.toLowerCase().includes("медиаборд")) {
           shapeStyle = "border-radius:0%;";
@@ -467,11 +462,13 @@
           "></div>
         `;
         const icon = L.divIcon({ html, iconSize: [iconSize, iconSize] });
-        const lat = item.lat || 51.0;
-        const lng = item.lng || 71.4;
+
+        // Убедимся, что lat/lng есть
+        const lat = parseFloat(item.lat) || 51.0;
+        const lng = parseFloat(item.lng) || 71.4;
 
         const marker = L.marker([lat, lng], { icon });
-        // Формируем содержимое попапа
+        // popup
         const popup = `
           <strong>${item.stopName || "Остановка не указана"}</strong><br>
           ID Табло: ${item.tablo || "не указан"}<br>
@@ -490,13 +487,14 @@
     }
 
     /***********************************************************
-     * 7) ЗАГРУЗКА ДАННЫХ (пример)
-     *    ВАЖНО: Замените URL на тот, который вернёт ваш Apps Script
+     * 7) ЗАГРУЗКА ДАННЫХ (из Apps Script)
      ***********************************************************/
-    fetch("https://script.google.com/macros/s/YOUR_DEPLOYED_SCRIPT_ID/exec")
+    fetch("https://script.google.com/macros/s/AKfycbxprxG-MDgk1ULTdQFAjpDr8_wPGkNnTmVjoawzUeGAFKRC-LgUPtRoTiBKVCWvQRAy/exec")
       .then(r => r.json())
       .then(data => {
         markersData = data;
+        // Если нужно посмотреть в консоль, раскомментируйте:
+        // console.log("Полученные данные:", data);
         addMarkers(markersData);
         updateLabels(markersData.length);
       })
@@ -512,7 +510,6 @@
       const panelTitle = document.getElementById("panelTitle");
       const panelContent = document.getElementById("panelContent");
 
-      // Если уже открыта эта же панель — закрываем
       if (bottomPanel.classList.contains("active") && panelTitle.innerText === title) {
         closePanel();
       } else {
@@ -532,8 +529,9 @@
      * 9) ЛЕГЕНДА
      ***********************************************************/
     document.getElementById("legendToggle").addEventListener("click", () => {
+      // Соберём блок «План»
       const legendPlan = planMonths.map(m => {
-        const cap = m.charAt(0).toUpperCase() + m.slice(1);
+        const cap = m.charAt(0).toUpperCase() + m.slice(1); // «март» -> «Март»
         return `
           <div class="legend-row">
             <div class="legend-icon" style="background-color:${getPlanColor(m)};"></div>
@@ -598,7 +596,7 @@
         selectedStatuses.push(st);
       }
       applyCombinedFilter();
-      // Для обновления кнопок повторно вызываем click
+      // Чтобы кнопки сразу обновились, заново открываем панель
       document.getElementById("statusToggle").click();
     };
     window.clearStatuses = function() {
@@ -641,8 +639,8 @@
     document.getElementById("planToggle").addEventListener("click", () => {
       let html = `<div class="filter-buttons">`;
       planMonths.forEach(m => {
-        const active = selectedPlans.includes(m) ? "active" : "";
         const cap = m.charAt(0).toUpperCase() + m.slice(1);
+        const active = selectedPlans.includes(m) ? "active" : "";
         html += `<button class="${active}" onclick="togglePlan('${m}')">${cap}</button>`;
       });
       html += `<button onclick="clearPlans()">Очистить</button>`;
@@ -665,7 +663,7 @@
     };
 
     /***********************************************************
-     * 13) ПОИСК
+     * 13) ПОИСК ПО НАЗВАНИЮ ОСТАНОВКИ / ID ТАБЛО
      ***********************************************************/
     document.getElementById("searchBtn").addEventListener("click", doSearch);
     document.getElementById("searchInput").addEventListener("keypress", e => {
@@ -674,11 +672,11 @@
     function doSearch() {
       const query = document.getElementById("searchInput").value.toLowerCase().trim();
       if (!query) {
-        // Пустой -> вернуть отфильтрованный набор
+        // Пустой ввод: вернём общий отфильтрованный набор
         applyCombinedFilter();
         return;
       }
-      // Ищем по названию остановки и ID Табло
+      // Фильтруем по названию остановки (stopName) и ID Табло (tablo)
       const filtered = markersData.filter(m => {
         const stopNameVal = (m.stopName || "").toLowerCase();
         const tabloVal    = (m.tablo || "").toLowerCase();
