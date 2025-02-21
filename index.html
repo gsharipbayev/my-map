@@ -343,16 +343,15 @@
     let selectedReklamas = [];
     let selectedPlans    = [];
 
-    // Все значения в нижнем регистре, чтобы было проще фильтровать
+    // Все значения в нижнем регистре для упрощения фильтра
     const allStatuses = ["работает","не работает","снят табло","демонтирован"];
     const allReklamas = ["led","lightbox","нет"];
-    // Здесь все тоже в нижнем регистре
     const planMonths  = [
       "март","апрель","май","июнь","июль","август",
       "сентябрь","октябрь","ноябрь","декабрь"
     ];
 
-    // Пример цветов для плана (ключи в том же регистре!)
+    // Пример цветов для плана
     const planColors = {
       "март": "#cce5ff",    "апрель": "#99ccff",
       "май": "#66b3ff",     "июнь": "#3399ff",
@@ -409,7 +408,7 @@
         if (["x","(x)нет","none","xнет"].includes(rec)) rec = "нет";
         const passReklama = (selectedReklamas.length === 0) || selectedReklamas.includes(rec);
 
-        // ПЛАН (приводим к нижнему регистру)
+        // ПЛАН
         const planVal = (m.plan || "").toLowerCase().trim();
         const passPlan = (selectedPlans.length === 0) || selectedPlans.includes(planVal);
 
@@ -450,11 +449,13 @@
       data.forEach(item => {
         const color = getMarkerColor(item);
 
-        // Если tablo содержит "медиаборд" - делаем квадрат, иначе круг
+        // Если tabloInfo (M-столбец) содержит «медиаборд», делаем квадрат
+        // (Это пример логики, если вам нужно отличать медиаборд по форме)
         let shapeStyle = "border-radius:50%;";
-        if (item.tablo && item.tablo.toLowerCase().includes("медиаборд")) {
+        if (item.tabloInfo && item.tabloInfo.toLowerCase().includes("медиаборд")) {
           shapeStyle = "border-radius:0%;";
         }
+
         const iconSize = 20;
         const html = `
           <div style="
@@ -470,12 +471,14 @@
         const lng = item.lng || 71.4;
 
         const marker = L.marker([lat, lng], { icon });
+        // Формируем содержимое попапа
         const popup = `
-          <strong>${item.stopName || item.stop || "Остановка не указана"}</strong><br>
+          <strong>${item.stopName || "Остановка не указана"}</strong><br>
           ID Табло: ${item.tablo || "не указан"}<br>
           Район: ${item.district || "не указан"}<br>
           Статус: ${item.status || "не указан"}<br>
           Реклама: ${item.reklama || "не указана"}<br>
+          Питание: ${item.power || "не указано"}<br>
           План: ${item.plan || "не указан"}
         `;
         marker.bindPopup(popup);
@@ -488,8 +491,9 @@
 
     /***********************************************************
      * 7) ЗАГРУЗКА ДАННЫХ (пример)
+     *    ВАЖНО: Замените URL на тот, который вернёт ваш Apps Script
      ***********************************************************/
-    fetch("https://script.google.com/macros/s/AKfycbw02IfURjZsCIZsckiRYKt_kawJ4OlazkNILhw4cGwSj-9cdAXzbP6AtNWWr3zNFnky/exec")
+    fetch("https://script.google.com/macros/s/YOUR_DEPLOYED_SCRIPT_ID/exec")
       .then(r => r.json())
       .then(data => {
         markersData = data;
@@ -528,9 +532,8 @@
      * 9) ЛЕГЕНДА
      ***********************************************************/
     document.getElementById("legendToggle").addEventListener("click", () => {
-      // Красивый вывод месяцев с заглавной буквы
       const legendPlan = planMonths.map(m => {
-        const cap = m.charAt(0).toUpperCase() + m.slice(1); // "март" -> "Март"
+        const cap = m.charAt(0).toUpperCase() + m.slice(1);
         return `
           <div class="legend-row">
             <div class="legend-icon" style="background-color:${getPlanColor(m)};"></div>
@@ -595,7 +598,7 @@
         selectedStatuses.push(st);
       }
       applyCombinedFilter();
-      // Для обновления вида кнопок заново открываем ту же панель
+      // Для обновления кнопок повторно вызываем click
       document.getElementById("statusToggle").click();
     };
     window.clearStatuses = function() {
@@ -639,7 +642,6 @@
       let html = `<div class="filter-buttons">`;
       planMonths.forEach(m => {
         const active = selectedPlans.includes(m) ? "active" : "";
-        // Выводим в кнопке тоже с заглавной буквы
         const cap = m.charAt(0).toUpperCase() + m.slice(1);
         html += `<button class="${active}" onclick="togglePlan('${m}')">${cap}</button>`;
       });
@@ -672,13 +674,13 @@
     function doSearch() {
       const query = document.getElementById("searchInput").value.toLowerCase().trim();
       if (!query) {
-        // Пустой запрос -> вернуть отфильтрованный набор
+        // Пустой -> вернуть отфильтрованный набор
         applyCombinedFilter();
         return;
       }
+      // Ищем по названию остановки и ID Табло
       const filtered = markersData.filter(m => {
-        // Поиск по названию и ID Табло
-        const stopNameVal = (m.stopName || m.stop || "").toLowerCase();
+        const stopNameVal = (m.stopName || "").toLowerCase();
         const tabloVal    = (m.tablo || "").toLowerCase();
         return stopNameVal.includes(query) || tabloVal.includes(query);
       });
