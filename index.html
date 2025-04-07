@@ -3,751 +3,263 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Leaflet Map — Состояние по умолчанию</title>
+  <title>Leaflet Map — фильтры</title>
 
-  <!-- Leaflet CSS -->
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
-  />
-  <!-- MarkerCluster CSS -->
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"
-  />
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"
-  />
+  <!-- Leaflet & Marker‑cluster CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
 
   <style>
-    /* Базовые стили */
-    html, body {
-      margin: 0; 
-      padding: 0;
-      height: 100%;
-      font-family: sans-serif; 
-      font-size:16px;
-    }
-    #map {
-      width:100%; 
-      height:100%; 
-      z-index:0;
-    }
-    .leaflet-top.leaflet-left {
-      margin-top:70px;
-    }
+    /* ===== base ===== */
+    html,body{margin:0;padding:0;height:100%;font-family:sans-serif;font-size:16px}
+    #map{width:100%;height:100%;z-index:0}
+    .leaflet-top.leaflet-left{margin-top:70px}
 
-    /*---------------------------------------------
-      1) Авто-скрытие верхней панели поиска
-    ----------------------------------------------*/
-    #searchActivator {
-      position:fixed;
-      top:0; left:0; right:0;
-      height:10px;
-      z-index:3000;
-    }
-    #topSearchBar {
-      position:fixed;
-      top:-70px; 
-      left:0; right:0;
-      z-index:3001;
-      display:flex; 
-      justify-content:center;
-      background:rgba(255,255,255,0.9);
-      padding:8px;
-      box-shadow:0 2px 5px rgba(0,0,0,0.3);
-      gap:8px;
-      align-items:center;
-      transition: top 0.3s;
-    }
-    #topSearchBar.show {
-      top:0;
-    }
-    #searchInput {
-      flex:1;
-      max-width:600px; 
-      padding:5px;
-      font-size:15px;
-      border:1px solid #ccc;
-      border-radius:5px;
-    }
-    #searchBtn {
-      font-size:14px;
-      padding:5px 8px;
-      cursor:pointer;
-      border:none; 
-      background:#007bff;
-      color:#fff; 
-      border-radius:5px;
-      flex-shrink:0;
-    }
+    /* ===== search bar ===== */
+    #searchActivator{position:fixed;top:0;left:0;right:0;height:10px;z-index:3000}
+    #topSearchBar{position:fixed;top:-70px;left:0;right:0;z-index:3001;display:flex;align-items:center;justify-content:center;gap:8px;background:rgba(255,255,255,.9);padding:8px;box-shadow:0 2px 5px rgba(0,0,0,.3);transition:top .3s}
+    #topSearchBar.show{top:0}
+    #searchInput{flex:1;max-width:600px;padding:5px;border:1px solid #ccc;border-radius:5px;font-size:15px}
+    #searchBtn{padding:5px 8px;border:none;border-radius:5px;background:#007bff;color:#fff;font-size:14px;cursor:pointer}
 
-    /*---------------------------------------------
-      2) Кнопки снизу (Легенда/Состояние/Реклама/План)
-    ----------------------------------------------*/
-    .control-buttons {
-      position:fixed;
-      bottom:10px;
-      left:50%;
-      transform:translateX(-50%);
-      display:flex;
-      gap:6px;
-      z-index:1001;
-    }
-    .btn {
-      padding:10px 16px;
-      font-size:14px;
-      min-width:110px;
-      background-color:#007bff;
-      color:#fff;
-      border:none;
-      border-radius:8px;
-      cursor:pointer;
-      transition:background-color 0.3s;
-      text-align:center;
-    }
-    .btn.active-filter {
-      background-color:#0056b3;
-    }
-    .btn:hover {
-      background-color:#0056b3;
-    }
-    .btn span {
-      display:block;
-      font-size:12px;
-      color:#d1e8ff;
-      margin-top:5px;
-    }
+    /* ===== bottom buttons ===== */
+    .control-buttons{position:fixed;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:6px;z-index:2000}
+    .btn{min-width:110px;padding:10px 16px;font-size:14px;border:none;border-radius:8px;background:#007bff;color:#fff;cursor:pointer;transition:background .3s;text-align:center}
+    .btn:hover,.btn.active-filter{background:#0056b3}
+    .btn span{display:block;font-size:12px;color:#d1e8ff;margin-top:5px}
 
-    /*---------------------------------------------
-      3) Подложка + нижняя панель
-    ----------------------------------------------*/
-    .overlay {
-      position:fixed;
-      top:0; left:0;
-      width:100%; height:100%;
-      background:rgba(0,0,0,0.5);
-      display:none;
-      z-index:1000;
-    }
-    .bottom-panel {
-      position:fixed;
-      bottom:-100%;
-      left:50%;
-      transform:translateX(-50%);
-      width:90%;
-      max-width:500px;
-      background:#fff;
-      border-radius:15px 15px 0 0;
-      font-size:16px;
-      padding:20px;
-      box-shadow:0 -2px 15px rgba(0,0,0,0.3);
-      transition:bottom 0.4s ease-in-out;
-      z-index:1002;
-    }
-    .bottom-panel.active {
-      bottom:10%;
-    }
-    .panel-title {
-      font-size:20px;
-      font-weight:bold;
-      margin-bottom:15px;
-      color:#333;
-    }
+    /* ===== overlay / bottom panel ===== */
+    .overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;z-index:1000}
+    .bottom-panel{position:fixed;bottom:-100%;left:50%;transform:translateX(-50%);width:90%;max-width:500px;background:#fff;border-radius:15px 15px 0 0;padding:20px;font-size:16px;box-shadow:0 -2px 15px rgba(0,0,0,.3);transition:bottom .4s ease-in-out;z-index:1500}
+    .bottom-panel.active{bottom:10%}
+    .panel-title{font-size:20px;font-weight:bold;margin-bottom:15px;color:#333}
 
-    /*---------------------------------------------
-      4) Кнопки внутри фильтра
-    ----------------------------------------------*/
-    .filter-buttons {
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-    }
-    .filter-buttons button {
-      background:#007bff; 
-      color:#fff;
-      border:none;
-      border-radius:5px;
-      padding:6px 12px;
-      cursor:pointer;
-      font-size:14px;
-      transition:background 0.2s;
-    }
-    .filter-buttons button:hover {
-      background:#0062cc;
-    }
-    .filter-buttons button.active {
-      background:#0056b3;
-    }
+    /* ===== inside‑panel buttons ===== */
+    .filter-buttons{display:flex;flex-wrap:wrap;gap:8px}
+    .filter-buttons button{padding:6px 12px;font-size:14px;border:none;border-radius:5px;background:#007bff;color:#fff;cursor:pointer;transition:background .2s}
+    .filter-buttons button:hover{background:#0062cc}
+    .filter-buttons button.active{background:#0056b3}
 
-    /*---------------------------------------------
-      5) Легенда
-    ----------------------------------------------*/
-    .legend-container {
-      display:flex;
-      flex-wrap:wrap;
-      gap:15px;
-    }
-    .legend-section {
-      display:flex; 
-      flex-direction:column; 
-      gap:10px;
-    }
-    .legend-title {
-      font-weight:bold; 
-      margin-bottom:5px;
-    }
-    .legend-row {
-      display:flex; 
-      align-items:center;
-      gap:10px;
-    }
-    .legend-icon {
-      width:20px; 
-      height:20px;
-      display:inline-block;
-      border-radius:50%;
-      border:1px solid #000;
-    }
+    /* ===== legend ===== */
+    .legend-container{display:flex;flex-wrap:wrap;gap:15px}
+    .legend-section{display:flex;flex-direction:column;gap:10px}
+    .legend-title{font-weight:bold;margin-bottom:5px}
+    .legend-row{display:flex;align-items:center;gap:10px}
+    .legend-icon{width:20px;height:20px;border:1px solid #000;border-radius:50%}
 
-    /*---------------------------------------------
-      6) MarkerCluster (radius=80). 
-         Если в кластере 1 цвет -> цвет, иначе белый.
-    ----------------------------------------------*/
-    .cluster-icon {
-      font-weight:bold;
-      text-align:center;
-    }
-    .my-div-icon {
-      background:none !important; 
-      border:none !important;
-    }
+    /* ===== clusters ===== */
+    .cluster-icon{font-weight:bold;text-align:center}
+    .my-div-icon{background:none!important;border:none!important}
 
-    /*---------------------------------------------
-      7) Адаптация под мобильные
-    ----------------------------------------------*/
-    @media (max-width:600px){
-      #searchInput {
-        max-width:400px;
-        font-size:14px;
-      }
-      #searchBtn {
-        font-size:12px; 
-        padding:4px 6px;
-      }
-      .btn {
-        padding:8px 12px;
-        font-size:13px; 
-        min-width:90px;
-      }
-      .bottom-panel {
-        width:95%; 
-        font-size:14px;
-      }
-      .panel-title {
-        font-size:18px;
-      }
-      .filter-buttons button {
-        font-size:13px; 
-        padding:5px 10px;
-      }
-    }
+    /* ===== mobile ===== */
+    @media(max-width:600px){#searchInput{max-width:400px;font-size:14px}#searchBtn{font-size:12px;padding:4px 6px}.btn{min-width:90px;padding:8px 12px;font-size:13px}.bottom-panel{width:95%;font-size:14px}.panel-title{font-size:18px}.filter-buttons button{font-size:13px;padding:5px 10px}}
   </style>
 </head>
 <body>
-  <!-- Полоса-активатор для верхней панели поиска -->
+  <!-- search bar -->
   <div id="searchActivator"></div>
+  <div id="topSearchBar"><input id="searchInput" placeholder="Поиск по ID Табло или Название остановки"/><button id="searchBtn">🔍</button></div>
 
-  <!-- Верхняя панель поиска -->
-  <div id="topSearchBar">
-    <input 
-      type="text" 
-      id="searchInput" 
-      placeholder="Поиск по ID Табло или Название остановки"
-    />
-    <button id="searchBtn">🔍</button>
-  </div>
-
-  <!-- Карта -->
+  <!-- map -->
   <div id="map"></div>
 
-  <!-- Кнопки снизу -->
+  <!-- bottom buttons -->
   <div class="control-buttons">
     <button class="btn" id="legendToggle">Легенда</button>
-    <button class="btn" id="statusToggle">
-      Состояние <span id="statusLabel">Все (0)</span>
-    </button>
-    <!-- Можно добавить «Реклама» / «План» кнопки, если нужно, 
-         но в задаче — главный акцент на «Состояние».
-         Оставлю как пример. -->
-    <button class="btn" id="reklamaToggle">
-      Реклама <span id="reklamaLabel">Все (0)</span>
-    </button>
-    <button class="btn" id="planToggle">
-      План <span id="planLabel">Все (0)</span>
-    </button>
+    <button class="btn" id="statusToggle">Состояние <span id="statusLabel">Все (0)</span></button>
+    <button class="btn" id="reklamaToggle">Реклама <span id="reklamaLabel">Все (0)</span></button>
+    <button class="btn" id="planToggle">План <span id="planLabel">Все (0)</span></button>
+    <button class="btn" id="moveToggle">Перемещение <span id="moveLabel">Все (0)</span></button>
   </div>
 
-  <!-- Подложка + нижняя панель -->
+  <!-- overlay & panel -->
   <div class="overlay" id="overlay"></div>
-  <div class="bottom-panel" id="bottomPanel">
-    <div class="panel-title" id="panelTitle">Легенда</div>
-    <div id="panelContent" class="legend-container"></div>
-  </div>
+  <div class="bottom-panel" id="bottomPanel"><div class="panel-title" id="panelTitle"></div><div id="panelContent" class="legend-container"></div></div>
 
-  <!-- Leaflet + MarkerCluster -->
+  <!-- libs -->
   <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 
   <script>
-    /***********************************************************
-     * 1) Панель поиска
-     ***********************************************************/
-    const searchActivator = document.getElementById("searchActivator");
-    const topSearchBar    = document.getElementById("topSearchBar");
+    /* ------------------------------------------------------------------
+       0. UTILS
+       ------------------------------------------------------------------*/
+    /**
+     * Унифицируем обращение к столбцу T (Перемещение).
+     * Apps Script может вернуть ключи «move», «Перемещение», «movement» и т.д.
+     */
+    function getMoveVal(obj){
+      return (obj.move ?? obj["Перемещение"] ?? obj.peremeshchenie ?? obj.movement ?? obj.transfer ?? "").toString().toLowerCase().trim();
+    }
+
+    /* ------------------------------------------------------------------
+       1. SEARCH BAR (появление/скрытие)
+       ------------------------------------------------------------------*/
+    const searchActivator=document.getElementById('searchActivator');
+    const topSearchBar=document.getElementById('topSearchBar');
     let hideTimer=null;
-    function showSearchBar(){
-      clearTimeout(hideTimer);
-      topSearchBar.classList.add("show");
-    }
-    function hideSearchBar(){
-      topSearchBar.classList.remove("show");
-    }
-    function startHideTimer(){
-      hideTimer=setTimeout(hideSearchBar,2000);
-    }
-    searchActivator.addEventListener("mouseenter", showSearchBar);
-    searchActivator.addEventListener("mouseleave", startHideTimer);
-    searchActivator.addEventListener("touchstart", showSearchBar,{passive:true});
-    topSearchBar.addEventListener("mouseleave", startHideTimer);
-    topSearchBar.addEventListener("touchstart",()=>clearTimeout(hideTimer),{passive:true});
+    const showSearchBar=()=>{clearTimeout(hideTimer);topSearchBar.classList.add('show');};
+    const hideSearchBar=()=>topSearchBar.classList.remove('show');
+    const startHideTimer=()=>hideTimer=setTimeout(hideSearchBar,2000);
+    ['mouseenter','touchstart'].forEach(e=>searchActivator.addEventListener(e,showSearchBar,{passive:true}));
+    searchActivator.addEventListener('mouseleave',startHideTimer);
+    topSearchBar.addEventListener('mouseleave',startHideTimer);
+    topSearchBar.addEventListener('touchstart',()=>clearTimeout(hideTimer),{passive:true});
 
-    /***********************************************************
-     * 2) Карта
-     ***********************************************************/
-    const map= L.map("map").setView([51.09,71.45], 11);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
-      maxZoom:19,
-    }).addTo(map);
-
-    // Будем хранить массив групп (по сути 1 группа, но для разных цвет-кластеров)
+    /* ------------------------------------------------------------------
+       2. MAP
+       ------------------------------------------------------------------*/
+    const map=L.map('map').setView([51.09,71.45],11);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
     let markerClusterGroup=null;
 
-    /***********************************************************
-     * 3) ДАННЫЕ
-     *    При загрузке — используем colorMode='status'
-     ***********************************************************/
+    /* ------------------------------------------------------------------
+       3. DATA & FILTER STATE
+       ------------------------------------------------------------------*/
     let markersData=[];
-    let colorMode='status'; // по умолчанию «Состояние»
+    let colorMode='status';
+    let selectedStatuses=[],selectedReklamas=[],selectedPlans=[],selectedMoves=[];
+    const allStatuses=['работает','не работает','снят табло','демонтирован'];
+    const allReklamas=['led','lightbox','нет'];
+    const planMonths=['март','апрель','май','июнь','июль','август','сентябрь','октябрь','ноябрь','декабрь'];
+    const allMoves=['требуется','не требуется'];
 
-    // массив выбранных статусов
-    let selectedStatuses=[];
-    // Аналогично для рекламы/плана (если нужно)
-    let selectedReklamas=[];
-    let selectedPlans=[];
+    /* ------------------------------------------------------------------
+       4. COLOR HELPERS
+       ------------------------------------------------------------------*/
+    const getStatusColor=st=>({'работает':'#00FF00','не работает':'#FF0000','снят табло':'#D3D3D3','демонтирован':'#555555'}[st]||'#FFFFFF');
+    const getReklamaColor=rk=>({led:'#FFA500',lightbox:'#800080','нет':'#00FFFF'}[rk]||'#000000');
+    const planColors={'март':'#cce5ff','апрель':'#99ccff','май':'#66b3ff','июнь':'#3399ff','июль':'#0080ff','август':'#0066cc','сентябрь':'#0052a3','октябрь':'#003d7a','ноябрь':'#002952','декабрь':'#001429'};
+    const getPlanColor=pl=>planColors[pl]||'#CCCCCC';
+    const getMoveColor=mv=>({'требуется':'#708090','не требуется':'#8B0000'}[mv]||'#FFFFFF');
 
-    const allStatuses=["работает","не работает","снят табло","демонтирован"];
-    const allReklamas=["led","lightbox","нет"];
-    const planMonths=[
-      "март","апрель","май","июнь","июль","август",
-      "сентябрь","октябрь","ноябрь","декабрь"
-    ];
+    /* ------------------------------------------------------------------
+       5. ADD MARKERS
+       ------------------------------------------------------------------*/
+    function addMarkers(arr){
+      if(markerClusterGroup)map.removeLayer(markerClusterGroup);
+      markerClusterGroup=L.markerClusterGroup({maxClusterRadius:80,iconCreateFunction:cl=>{
+        const colors=new Set(cl.getAllChildMarkers().map(m=>m.myColor));
+        const bg=colors.size===1?[...colors][0]:'#FFF';
+        return L.divIcon({html:`<div style="background:${bg};border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center;font-weight:bold;">${cl.getChildCount()}</div>`,className:'cluster-icon',iconSize:[40,40]});
+      }});
 
-    /***********************************************************
-     * 4) Раскраска по статусу
-     ***********************************************************/
-    function getStatusColor(st){
-      const s=(st||"").toLowerCase().trim();
-      switch(s){
-        case "работает":       return "#00FF00"; 
-        case "не работает":    return "#FF0000"; 
-        case "снят табло":     return "#D3D3D3"; 
-        case "демонтирован":   return "#555555"; 
-        default:               return "#FFFFFF";
-      }
-    }
-    // Если вы всё-таки хотите фильтровать и по рекламе/плану, 
-    // можно добавить getReklamaColor / getPlanColor, но 
-    // ТЗ фокусируется на «Состояние по умолчанию». 
-    // Оставляю как пример.
+      arr.forEach(it=>{
+        const moveVal=getMoveVal(it);
+        let c=getStatusColor(it.status?.toLowerCase().trim());
+        if(colorMode==='reklama')c=getReklamaColor((it.reklama||'').toLowerCase().replace(/\s/g,''));
+        else if(colorMode==='plan')c=getPlanColor((it.plan||'').toLowerCase().trim());
+        else if(colorMode==='move')c=getMoveColor(moveVal);
 
-    function getReklamaColor(rk){
-      let r=(rk||"").toLowerCase().replace(/\s/g,'');
-      if(["x","(x)нет","none","xнет"].includes(r)) r='нет';
-      switch(r){
-        case "led":       return "#FFA500";
-        case "lightbox":  return "#800080";
-        case "нет":       return "#00FFFF";
-        default:          return "#000000";
-      }
-    }
-    const planColors={
-      "март": "#cce5ff","апрель":"#99ccff","май":"#66b3ff","июнь":"#3399ff",
-      "июль":"#0080ff","август":"#0066cc","сентябрь":"#0052a3","октябрь":"#003d7a",
-      "ноябрь":"#002952","декабрь":"#001429",
-    };
-    function getPlanColor(pl){
-      const p=(pl||"").toLowerCase().trim();
-      return planColors[p]||"#CCCCCC";
-    }
+        const lat=parseFloat(it.lat)||51,lng=parseFloat(it.lng)||71;
+        const isBoard=(it.tabloInfo||'').toLowerCase().includes('медиаборд');
+        const icon=L.divIcon({className:'my-div-icon',html:`<div style="width:20px;height:20px;background:${c};border:1px solid #000;${isBoard?'border-radius:0%;':'border-radius:50%;'}"></div>`,iconSize:[20,20]});
+        const m=L.marker([lat,lng],{icon});m.myColor=c;
 
-    /***********************************************************
-     * 5) ДОБАВЛЕНИЕ МАРКЕРОВ
-     *    Кластер = 1 MarkerClusterGroup, но при иконке мы
-     *    проверяем, все ли маркеры одного цвета?
-     ***********************************************************/
-    function addMarkers(data){
-      // Удалим предыдущий markerClusterGroup (если есть)
-      if(markerClusterGroup){
-        map.removeLayer(markerClusterGroup);
-      }
-
-      markerClusterGroup= L.markerClusterGroup({
-        maxClusterRadius:80,
-        iconCreateFunction: cluster=>{
-          // Собираем список цветов в кластере
-          const markers= cluster.getAllChildMarkers();
-          const colorCountMap={};
-          markers.forEach(m=>{
-            const c= m.myColor||"#cccccc";
-            colorCountMap[c]= (colorCountMap[c]||0)+1;
-          });
-          const colorEntries= Object.keys(colorCountMap);
-          const count= cluster.getChildCount();
-
-          // Если в кластере ТОЛЬКО 1 цвет => цветной круг
-          if(colorEntries.length===1){
-            const onlyColor= colorEntries[0];
-            return L.divIcon({
-              html:`<div style="
-                background-color:${onlyColor};
-                border-radius:50%;
-                width:40px; height:40px;
-                display:flex; align-items:center; 
-                justify-content:center;
-                color:#000;
-                font-weight:bold;
-              ">${count}</div>`,
-              className:'cluster-icon',
-              iconSize:[40,40],
-            });
-          } else {
-            // несколько цветов => белый круг
-            return L.divIcon({
-              html:`<div style="
-                background-color:#FFF;
-                border-radius:50%;
-                width:40px; height:40px;
-                display:flex; align-items:center;
-                justify-content:center;
-                color:#000;
-                font-weight:bold;
-              ">${count}</div>`,
-              className:'cluster-icon',
-              iconSize:[40,40],
-            });
-          }
-        }
+        m.bindPopup(`<div style="font-weight:bold;font-size:1.1em;">${it.stopName||'(нет)'}</div>ID Табло: ${it.tablo||'-'}<br>Улица: ${it.street||'-'}<br>Направление: ${it.direction||'-'}<br>Район: ${it.district||'-'}<br>Статус: ${it.status||'-'}<br>Реклама: ${it.reklama||'-'}<br>План: ${it.plan||'-'}<br>Перемещение: ${moveVal||'-'}`);
+        markerClusterGroup.addLayer(m);
       });
-
-      // Создаём и добавляем маркеры
-      data.forEach(item=>{
-        // status color
-        let c = getStatusColor(item.status); 
-        if(colorMode==='reklama'){
-          c= getReklamaColor(item.reklama);
-        } else if(colorMode==='plan'){
-          c= getPlanColor(item.plan);
-        }
-        // Если у вас нужно: по умолчанию => status, 
-        // но вы можете сделать 
-        // (colorMode==='status') => getStatusColor,
-        // etc.
-
-        const lat=parseFloat(item.lat)||51.0;
-        const lng=parseFloat(item.lng)||71.4;
-
-        let shape="border-radius:50%;";
-        if((item.tabloInfo||"").toLowerCase().includes("медиаборд")){
-          shape="border-radius:0%;";
-        }
-        const iconHTML=`
-          <div style="
-            width:20px; height:20px;
-            background-color:${c};
-            border:1px solid #000;
-            ${shape}
-          "></div>
-        `;
-        const icon= L.divIcon({
-          className:'my-div-icon', 
-          html:iconHTML,
-          iconSize:[20,20]
-        });
-        const marker=L.marker([lat,lng], {icon});
-        // Сохраняем цвет для кластера
-        marker.myColor= c;
-
-        // Попап
-        const stopNameVal= item.stopName||"(нет)";
-        const popup=`
-          <div style="font-weight:bold; font-size:1.1em;">
-            ${stopNameVal}
-          </div>
-          ID Табло: ${item.tablo||"-"}<br>
-          Улица: ${item.street||"-"}<br>
-          Направление: ${item.direction||"-"}<br>
-          Район: ${item.district||"-"}<br>
-          Статус: ${item.status||"-"}<br>
-          Реклама: ${item.reklama||"-"}<br>
-          План: ${item.plan||"-"}
-        `;
-        marker.bindPopup(popup);
-        markerClusterGroup.addLayer(marker);
-      });
-
       map.addLayer(markerClusterGroup);
     }
 
-    /***********************************************************
-     * 6) ФИЛЬТРАЦИЯ
-     ***********************************************************/
+    /* ------------------------------------------------------------------
+       6. FILTERING
+       ------------------------------------------------------------------*/
     function applyCombinedFilter(){
-      // Соберём список маркеров, подходящих под выбранные статусы:
-      const filtered= markersData.filter(m=>{
-        // Состояние
-        const st=(m.status||"").toLowerCase().trim();
-        const passStatus=(selectedStatuses.length===0) || selectedStatuses.includes(st);
-
-        // (реклама/план если нужно)
-        let r=(m.reklama||"").toLowerCase().replace(/\s/g,'');
-        if(["x","(x)нет","none","xнет"].includes(r)) r='нет';
-        const passReklama=(selectedReklamas.length===0)|| selectedReklamas.includes(r);
-
-        const p=(m.plan||"").toLowerCase().trim();
-        const passPlan=(selectedPlans.length===0)|| selectedPlans.includes(p);
-
-        return passStatus && passReklama && passPlan;
+      const filtered=markersData.filter(m=>{
+        const st=(m.status||'').toLowerCase().trim();
+        let rk=(m.reklama||'').toLowerCase().replace(/\s/g,'');if(['x','(x)нет','none','xнет'].includes(rk))rk='нет';
+        const pl=(m.plan||'').toLowerCase().trim();
+        const mv=getMoveVal(m);
+        const okStatus=selectedStatuses.length===0||selectedStatuses.includes(st);
+        const okRekl  =selectedReklamas.length===0||selectedReklamas.includes(rk);
+        const okPlan  =selectedPlans.length===0||selectedPlans.includes(pl);
+        const okMove  =selectedMoves.length===0||selectedMoves.includes(mv);
+        return okStatus&&okRekl&&okPlan&&okMove;
       });
-      addMarkers(filtered);
-      updateLabels(filtered.length);
+      addMarkers(filtered);updateLabels(filtered.length);
     }
-    function updateLabels(count){
-      document.getElementById("statusLabel").innerText=`Все (${count})`;
-      document.getElementById("reklamaLabel").innerText=`Все (${count})`;
-      document.getElementById("planLabel").innerText=`Все (${count})`;
-    }
+    const updateLabels=cnt=>['statusLabel','reklamaLabel','planLabel','moveLabel'].forEach(id=>document.getElementById(id).innerText=`Все (${cnt})`);
 
-    /***********************************************************
-     * 7) ЗАГРУЗКА ДАННЫХ (Apps Script)
-     *    colorMode='status' => по умолчанию
-     *    показываем все?
-     ***********************************************************/
-    let markersLoaded=false;
-    fetch("https://script.google.com/macros/s/AKfycbxprxG-MDgk1ULTdQFAjpDr8_wPGkNnTmVjoawzUeGAFKRC-LgUPtRoTiBKVCWvQRAy/exec")
+    /* ------------------------------------------------------------------
+       7. LOAD DATA
+       ------------------------------------------------------------------*/
+    fetch('https://script.google.com/macros/s/AKfycbxprxG-MDgk1ULTdQFAjpDr8_wPGkNnTmVjoawzUeGAFKRC-LgUPtRoTiBKVCWvQRAy/exec')
       .then(r=>r.json())
-      .then(data=>{
-        markersData=data;
-        markersLoaded=true;
-        // По умолчанию: показываем все (selectedStatuses=[])
-        applyCombinedFilter();
-      })
-      .catch(e=> console.error("Ошибка:", e));
+      .then(d=>{markersData=d;applyCombinedFilter();})
+      .catch(e=>console.error('Ошибка загрузки',e));
 
-    /***********************************************************
-     * 8) ЛЕГЕНДА
-     ***********************************************************/
-    const overlay= document.getElementById("overlay");
-    const bottomPanel= document.getElementById("bottomPanel");
-    function togglePanel(title, content){
-      const panelTitle= document.getElementById("panelTitle");
-      const panelContent= document.getElementById("panelContent");
-      if(bottomPanel.classList.contains("active") && panelTitle.innerText===title){
-        closePanel();
-      } else {
-        panelTitle.innerText=title;
-        panelContent.innerHTML=content;
-        bottomPanel.classList.add("active");
-        overlay.style.display="block";
-      }
+    /* ------------------------------------------------------------------
+       8. LEGEND / PANEL
+       ------------------------------------------------------------------*/
+    const overlay=document.getElementById('overlay');
+    const bottomPanel=document.getElementById('bottomPanel');
+    const togglePanel=(title,html)=>{const t=document.getElementById('panelTitle');const c=document.getElementById('panelContent');if(bottomPanel.classList.contains('active')&&t.innerText===title){closePanel();}else{t.innerText=title;c.innerHTML=html;bottomPanel.classList.add('active');overlay.style.display='block';}};
+    const closePanel=()=>{bottomPanel.classList.remove('active');overlay.style.display='none';};
+    overlay.addEventListener('click',closePanel);
+    document.getElementById('legendToggle').addEventListener('click',()=>togglePanel('Легенда',`<div class="legend-section"><div class="legend-title">Состояние</div><div class="legend-row"><div class="legend-icon" style="background:#00FF00"></div> Работает</div><div class="legend-row"><div class="legend-icon" style="background:#FF0000"></div> Не работает</div><div class="legend-row"><div class="legend-icon" style="background:#D3D3D3"></div> Снят табло</div><div class="legend-row"><div class="legend-icon" style="background:#555555"></div> Демонтирован</div><div class="legend-title" style="margin-top:15px;">Перемещение</div><div class="legend-row"><div class="legend-icon" style="background:#708090"></div> Требуется</div><div class="legend-row"><div class="legend-icon" style="background:#8B0000"></div> Не требуется</div></div>`));
+
+    /* ------------------------------------------------------------------
+       9. FILTER PANEL GENERATOR
+       ------------------------------------------------------------------*/
+    function openFilter(mode,values,selectedArr,toggleFnName,title){
+      colorMode=mode;
+      if(mode!=='status')selectedStatuses=[];
+      if(mode!=='reklama')selectedReklamas=[];
+      if(mode!=='plan')   selectedPlans=[];
+      if(mode!=='move')   selectedMoves=[];
+
+      let html='<div class="filter-buttons">';
+      values.forEach(v=>{const act=selectedArr.includes(v)?'active':'';html+=`<button class="${act}" onclick="${toggleFnName}('${v}')">${v}</button>`;});
+      html+=`<button onclick="clear${toggleFnName.slice(6)}s()">Очистить</button></div>`; // e.g. clearMoves()
+      togglePanel(title,html);
+      applyCombinedFilter();
     }
-    function closePanel(){
-      bottomPanel.classList.remove("active");
-      overlay.style.display="none";
-    }
-    overlay.addEventListener("click", closePanel);
 
-    document.getElementById("legendToggle").addEventListener("click",()=>{
-      // Пример легенды
-      const legendHtml=`
-        <div class="legend-section">
-          <div class="legend-title">Состояние (По умолчанию)</div>
-          <div class="legend-row">
-            <div class="legend-icon" style="background-color:#00FF00;"></div> Работает
-          </div>
-          <div class="legend-row">
-            <div class="legend-icon" style="background-color:#FF0000;"></div> Не работает
-          </div>
-          <div class="legend-row">
-            <div class="legend-icon" style="background-color:#D3D3D3;"></div> Снят табло
-          </div>
-          <div class="legend-row">
-            <div class="legend-icon" style="background-color:#555555;"></div> Демонтирован
-          </div>
-        </div>
-      `;
-      togglePanel("Легенда", legendHtml);
-    });
+    /* ------------------------------------------------------------------
+       10. TOGGLE / CLEAR HANDLERS
+       ------------------------------------------------------------------*/
+    document.getElementById('statusToggle').addEventListener('click',()=>openFilter('status',allStatuses,selectedStatuses,'toggleStatus','Состояние'));
+    window.toggleStatus=st=>{selectedStatuses=selectedStatuses.includes(st)?selectedStatuses.filter(x=>x!==st):[...selectedStatuses,st];applyCombinedFilter();document.getElementById('statusToggle').click();};
+    window.clearStatuss=()=>{selectedStatuses=[];applyCombinedFilter();document.getElementById('statusToggle').click();};
 
-    /***********************************************************
-     * 9) ФИЛЬТР «СОСТОЯНИЕ»
-     ***********************************************************/
-    document.getElementById("statusToggle").addEventListener("click", ()=>{
-      // colorMode='status'
-      // сбросим другие: selectedReklamas, selectedPlans
-      selectedReklamas=[];
-      selectedPlans=[];
+    document.getElementById('reklamaToggle').addEventListener('click',()=>openFilter('reklama',allReklamas,selectedReklamas,'toggleReklama','Реклама'));
+    window.toggleReklama=rk=>{selectedReklamas=selectedReklamas.includes(rk)?selectedReklamas.filter(x=>x!==rk):[...selectedReklamas,rk];applyCombinedFilter();document.getElementById('reklamaToggle').click();};
+    window.clearReklamas=()=>{selectedReklamas=[];applyCombinedFilter();document.getElementById('reklamaToggle').click();};
 
-      let html=`<div class="filter-buttons">`;
-      allStatuses.forEach(st=>{
-        const active= selectedStatuses.includes(st) ? "active":"";
-        html += `<button class="${active}" onclick="toggleStatus('${st}')">${st}</button>`;
-      });
-      html+= `<button onclick="clearStatuses()">Очистить</button>`;
-      html+= `</div>`;
+    document.getElementById('planToggle').addEventListener('click',()=>openFilter('plan',planMonths,selectedPlans,'togglePlan','План'));
+    window.togglePlan=pl=>{selectedPlans=selectedPlans.includes(pl)?selectedPlans.filter(x=>x!==pl):[...selectedPlans,pl];applyCombinedFilter();document.getElementById('planToggle').click();};
+    window.clearPlans=()=>{selectedPlans=[];applyCombinedFilter();document.getElementById('planToggle').click();};
 
-      togglePanel("Состояние", html);
+    document.getElementById('moveToggle').addEventListener('click',()=>openFilter('move',allMoves,selectedMoves,'toggleMove','Перемещение'));
+    window.toggleMove=mv=>{selectedMoves=selectedMoves.includes(mv)?selectedMoves.filter(x=>x!==mv):[...selectedMoves,mv];applyCombinedFilter();document.getElementById('moveToggle').click();};
+    window.clearMoves=()=>{selectedMoves=[];applyCombinedFilter();document.getElementById('moveToggle').click();};
 
-      // Применим фильтр
-      applyCombinedFilter();
-    });
-    window.toggleStatus= function(st){
-      if(selectedStatuses.includes(st)){
-        selectedStatuses= selectedStatuses.filter(x=>x!==st);
-      } else {
-        selectedStatuses.push(st);
-      }
-      applyCombinedFilter();
-      // Перезапустим панель
-      document.getElementById("statusToggle").click();
-    };
-    window.clearStatuses= function(){
-      selectedStatuses=[];
-      applyCombinedFilter();
-      document.getElementById("statusToggle").click();
-    };
-
-    /***********************************************************
-     * 10) ФИЛЬТР «РЕКЛАМА»
-     ***********************************************************/
-    document.getElementById("reklamaToggle").addEventListener("click",()=>{
-      // переключаем colorMode='reklama'
-      colorMode='reklama';
-      // сбросим статусы/планы
-      selectedStatuses=[];
-      selectedPlans=[];
-
-      let html=`<div class="filter-buttons">`;
-      allReklamas.forEach(r=>{
-        const active= selectedReklamas.includes(r)?"active":"";
-        html += `<button class="${active}" onclick="toggleReklama('${r}')">${r}</button>`;
-      });
-      html+= `<button onclick="clearReklamas()">Очистить</button>`;
-      html+= `</div>`;
-      togglePanel("Реклама", html);
-
-      applyCombinedFilter();
-    });
-    window.toggleReklama= function(r){
-      if(selectedReklamas.includes(r)){
-        selectedReklamas= selectedReklamas.filter(x=>x!==r);
-      } else {
-        selectedReklamas.push(r);
-      }
-      applyCombinedFilter();
-      document.getElementById("reklamaToggle").click();
-    };
-    window.clearReklamas= function(){
-      selectedReklamas=[];
-      applyCombinedFilter();
-      document.getElementById("reklamaToggle").click();
-    };
-
-    /***********************************************************
-     * 11) ФИЛЬТР «ПЛАН»
-     ***********************************************************/
-    document.getElementById("planToggle").addEventListener("click",()=>{
-      // colorMode='plan'
-      colorMode='plan';
-      // сброс статусы/реклама
-      selectedStatuses=[];
-      selectedReklamas=[];
-
-      let html=`<div class="filter-buttons">`;
-      planMonths.forEach(m=>{
-        const cap= m.charAt(0).toUpperCase()+ m.slice(1);
-        const active= selectedPlans.includes(m)?"active":"";
-        html+= `<button class="${active}" onclick="togglePlan('${m}')">${cap}</button>`;
-      });
-      html+= `<button onclick="clearPlans()">Очистить</button>`;
-      html+= `</div>`;
-      togglePanel("План", html);
-
-      applyCombinedFilter();
-    });
-    window.togglePlan= function(m){
-      if(selectedPlans.includes(m)){
-        selectedPlans= selectedPlans.filter(x=>x!==m);
-      } else {
-        selectedPlans.push(m);
-      }
-      applyCombinedFilter();
-      document.getElementById("planToggle").click();
-    };
-    window.clearPlans= function(){
-      selectedPlans=[];
-      applyCombinedFilter();
-      document.getElementById("planToggle").click();
-    };
-
-    /***********************************************************
-     * 12) ПОИСК
-     ***********************************************************/
-    document.getElementById("searchBtn").addEventListener("click", doSearch);
-    document.getElementById("searchInput").addEventListener("keypress", e=>{
-      if(e.key==="Enter") doSearch();
-    });
+    /* ------------------------------------------------------------------
+       11. SEARCH
+       ------------------------------------------------------------------*/
     function doSearch(){
-      const query= document.getElementById("searchInput").value.toLowerCase().trim();
-      if(!query){
-        applyCombinedFilter();
-        return;
-      }
-      // Фильтр + поиск
-      const filtered= markersData.filter(m=>{
-        // проверим статус/реклама/план
-        let passStatus=true, passReklama=true, passPlan=true;
-        const s=(m.status||"").toLowerCase().trim();
-        if(selectedStatuses.length>0 && !selectedStatuses.includes(s)) passStatus=false;
-
-        let r=(m.reklama||"").toLowerCase().replace(/\s/g,'');
-        if(["x","(x)нет","none","xнет"].includes(r)) r='нет';
-        if(selectedReklamas.length>0 && !selectedReklamas.includes(r)) passReklama=false;
-
-        const p=(m.plan||"").toLowerCase().trim();
-        if(selectedPlans.length>0 && !selectedPlans.includes(p)) passPlan=false;
-
-        if(!passStatus || !passReklama || !passPlan) return false;
-
-        // Поиск
-        const stopNameVal=(m.stopName||"").toLowerCase();
-        const tabloVal= String(m.tablo||"").toLowerCase();
-        return stopNameVal.includes(query) || tabloVal.includes(query);
+      const q=document.getElementById('searchInput').value.toLowerCase().trim();
+      if(!q){applyCombinedFilter();return;}
+      const filtered=markersData.filter(m=>{
+        const st=(m.status||'').toLowerCase().trim();
+        let rk=(m.reklama||'').toLowerCase().replace(/\s/g,'');if(['x','(x)нет','none','xнет'].includes(rk))rk='нет';
+        const pl=(m.plan||'').toLowerCase().trim();
+        const mv=getMoveVal(m);
+        const okStatus=selectedStatuses.length===0||selectedStatuses.includes(st);
+        const okRekl  =selectedReklamas.length===0||selectedReklamas.includes(rk);
+        const okPlan  =selectedPlans.length===0||selectedPlans.includes(pl);
+        const okMove  =selectedMoves.length===0||selectedMoves.includes(mv);
+        if(!okStatus||!okRekl||!okPlan||!okMove)return false;
+        const name=(m.stopName||'').toLowerCase();
+        const tablo=String(m.tablo||'').toLowerCase();
+        return name.includes(q)||tablo.includes(q);
       });
-      addMarkers(filtered);
-      updateLabels(filtered.length);
+      addMarkers(filtered);updateLabels(filtered.length);
     }
+    document.getElementById('searchBtn').addEventListener('click',doSearch);
+    document.getElementById('searchInput').addEventListener('keypress',e=>{if(e.key==='Enter')doSearch();});
   </script>
 </body>
 </html>
