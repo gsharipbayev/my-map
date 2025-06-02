@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Leaflet Map — Фильтры Важность и Улица</title>
+  <title>Leaflet Map — Фильтры Важность и Улица (обновленный popup)</title>
 
   <link
     rel="stylesheet"
@@ -33,12 +33,11 @@
       z-index:0;
     }
     .leaflet-top.leaflet-left { /* Позиция контрола зума Leaflet по умолчанию */
-        margin-top: 10px; /* Сдвигаем чуть ниже, если верхняя панель поиска активна */
+        margin-top: 10px;
     }
      #topSearchBar.show + #map .leaflet-top.leaflet-left {
-        margin-top: 70px; /* Сдвигаем контролы Leaflet вниз, когда панель поиска видима */
+        margin-top: 70px;
     }
-
 
     /* 1) Авто‑скрытие верхней панели поиска */
     #searchActivator {
@@ -193,15 +192,15 @@
     }
 
     /* 5) Легенда */
-    .legend-container { /* Общий контейнер для секций легенды */
+    .legend-container {
         display: flex;
-        flex-direction: column; /* Секции одна под другой */
-        gap: 15px; /* Отступ между секциями */
+        flex-direction: column;
+        gap: 15px;
     }
     .legend-section {
       display:flex;
       flex-direction:column;
-      gap:10px; /* Отступ между элементами внутри секции */
+      gap:10px;
     }
     .legend-title {
       font-weight:bold;
@@ -221,14 +220,18 @@
     }
 
     /* 6) MarkerCluster */
-    .cluster-icon {
+    .cluster-icon { /* Общий класс для DivIcon кластера, если нужен */
       font-weight:bold;
       text-align:center;
     }
-    .my-div-icon { /* Для сброса стилей leaflet по умолчанию для divIcon */
+    .my-div-icon {
       background:none !important;
       border:none !important;
     }
+     .cluster-icon-only { /* Класс для иконок кластера, чтобы избежать конфликтов */
+        /* Стили задаются инлайн в iconCreateFunction */
+    }
+
 
     /* 7) Адаптация под мобильные */
     @media (max-width:600px){
@@ -299,7 +302,7 @@
 
   <script>
     /***********************************************************
-     * 1) Панель поиска (без изменений)
+     * 1) Панель поиска
      ***********************************************************/
     const searchActivator = document.getElementById("searchActivator");
     const topSearchBar    = document.getElementById("topSearchBar");
@@ -314,9 +317,9 @@
     topSearchBar.addEventListener("touchstart",()=>clearTimeout(hideTimer),{passive:true});
 
     /***********************************************************
-     * 2) Карта (без изменений)
+     * 2) Карта
      ***********************************************************/
-    const map = L.map("map", { zoomControl: false }).setView([51.127,71.43], 12);
+    const map = L.map("map", { zoomControl: false }).setView([51.127,71.43], 12); // Центр Астаны
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
       maxZoom:19,
       attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -324,10 +327,10 @@
     L.control.zoom({ position: 'topright' }).addTo(map);
 
     let markerClusterGroup = null;
-    const DEFAULT_MARKER_COLOR = "#007bff"; // Синий цвет по умолчанию для маркеров
+    const DEFAULT_MARKER_COLOR = "#007bff"; // Синий цвет по умолчанию
 
     /***********************************************************
-     * 3) ДАННЫЕ и СОСТОЯНИЯ ФИЛЬТРОВ (упрощено)
+     * 3) ДАННЫЕ и СОСТОЯНИЯ ФИЛЬТРОВ
      ***********************************************************/
     let markersData = [];
     let colorMode = 'planningImportance'; // Режим раскраски по умолчанию
@@ -335,11 +338,12 @@
     let selectedPlanningImportances = [];
     let selectedStreets = [];
 
-    const planningImportanceCategories = ["высокий", "средний", "cts", "низкий", "существует", "установить"]; // Добавлены "существует", "установить"
+    // Обновленный список категорий, включая возможные значения из ваших данных
+    const planningImportanceCategories = ["высокий", "средний", "cts", "низкий", "существует", "установить"];
     let allStreets = [];
 
     /***********************************************************
-     * 4) Раскраска маркеров (упрощено)
+     * 4) Раскраска маркеров
      ***********************************************************/
     function getPlanningImportanceColor(pi) {
         const p = (pi || "").toLowerCase().trim();
@@ -348,44 +352,44 @@
             case "средний":  return "#ffc107"; // Yellow
             case "cts":      return "#dc3545"; // Red
             case "низкий":   return "#6c757d"; // Grey
-            case "существует": return "#007bff"; // Blue
-            case "установить": return "#17a2b8"; // Cyan
-            default:         return DEFAULT_MARKER_COLOR; // Если значение не найдено, или для "Другое"
+            case "существует": return "#007bff"; // Blue (для "Существует")
+            case "установить": return "#17a2b8"; // Cyan (для "Установить")
+            default:         return DEFAULT_MARKER_COLOR; // Цвет по умолчанию для нераспознанных
         }
     }
 
     function getCurrentMarkerColor(item) {
-        if (colorMode === 'planningImportance' && selectedPlanningImportances.length > 0) {
-            // Если есть выбранные фильтры важности, красим по ним
-            // Только если текущее значение item.planning есть среди выбранных
+        if (colorMode === 'planningImportance') {
             const currentPlanningValue = (item.planning || "").toLowerCase().trim();
-            if (selectedPlanningImportances.includes(currentPlanningValue)) {
-                 return getPlanningImportanceColor(currentPlanningValue);
+            if (selectedPlanningImportances.length > 0) { // Если есть активные фильтры по важности
+                if (selectedPlanningImportances.includes(currentPlanningValue)) {
+                    return getPlanningImportanceColor(currentPlanningValue);
+                }
+                return DEFAULT_MARKER_COLOR; // Если маркер не подходит под активный фильтр важности
+            } else { // Если фильтр "Важность" активен, но ничего не выбрано, красим по значению
+                return getPlanningImportanceColor(currentPlanningValue);
             }
-            // Если значение этого маркера не в фильтре, но фильтр активен, можно вернуть цвет "не подходит" или дефолт
-            return DEFAULT_MARKER_COLOR; // Или специальный цвет для отфильтрованных, но не подходящих
         }
-         if (colorMode === 'planningImportance' && selectedPlanningImportances.length === 0) {
-            // Если режим "Важность" активен, но ничего не выбрано, красим по значению item.planning
-            return getPlanningImportanceColor(item.planning);
-        }
-        return DEFAULT_MARKER_COLOR; // Общий цвет по умолчанию, если никакой режим не активен или фильтры сняты
+        return DEFAULT_MARKER_COLOR; // Общий цвет по умолчанию
     }
 
     /***********************************************************
-     * 5) ДОБАВЛЕНИЕ МАРКЕРОВ (popup обновлен)
+     * 5) ДОБАВЛЕНИЕ МАРКЕРОВ
      ***********************************************************/
     function addMarkers(data){
       if(markerClusterGroup){ map.removeLayer(markerClusterGroup); }
 
       markerClusterGroup = L.markerClusterGroup({
-        maxClusterRadius: 60,
+        maxClusterRadius: 60, // Радиус кластеризации
         iconCreateFunction: cluster => {
           const count = cluster.getChildCount();
-          let size = 30 + count / 5; size = Math.min(Math.max(size, 30), 50);
+          let size = 30 + count / 10; // Динамический размер иконки кластера
+          size = Math.min(Math.max(size, 30), 50); // Ограничиваем размер
+
+          // Логика цвета для кластера (можно упростить или сделать сложнее)
           const markers = cluster.getAllChildMarkers();
           const colorCountMap = {};
-          let mostFrequentColor = DEFAULT_MARKER_COLOR;
+          let mostFrequentColor = DEFAULT_MARKER_COLOR; 
           let maxCount = 0;
           markers.forEach(m => {
               const c = m.myColor || DEFAULT_MARKER_COLOR;
@@ -393,52 +397,69 @@
               if (colorCountMap[c] > maxCount) { maxCount = colorCountMap[c]; mostFrequentColor = c; }
           });
           const uniqueColors = Object.keys(colorCountMap);
-          let clusterColor = '#DDD'; if (uniqueColors.length === 1) { clusterColor = uniqueColors[0]; }
+          let clusterColor = '#DDD'; // Серый для смешанных кластеров
+          if (uniqueColors.length === 1) { 
+              clusterColor = uniqueColors[0]; // Если все одного цвета
+          } else if (uniqueColors.length > 1 && mostFrequentColor !== DEFAULT_MARKER_COLOR && maxCount > markers.length / 2) {
+              clusterColor = mostFrequentColor; // Если есть доминирующий цвет (не дефолтный)
+          }
+
 
           return L.divIcon({
-            html: `<div style="background-color:${clusterColor}; border: 2px solid #555; border-radius:50%; width:${size}px; height:${size}px; display:flex; align-items:center; justify-content:center; color:#000; font-weight:bold; font-size: ${size/2.5}px;">${count}</div>`,
-            className:'cluster-icon-only', iconSize:[size,size],
+            html: `<div style="background-color:${clusterColor}; border: 2px solid #555; border-radius:50%; width:${size}px; height:${size}px; display:flex; align-items:center; justify-content:center; color:#000; font-weight:bold; font-size: ${Math.max(10, size/2.5)}px;">${count}</div>`,
+            className:'cluster-icon-only', 
+            iconSize:[size,size],
+            iconAnchor: [size/2, size/2]
           });
         }
       });
 
       data.forEach(item => {
         const c = getCurrentMarkerColor(item);
-        const lat = parseFloat(item.lat); const lng = parseFloat(item.lng);
-        if (isNaN(lat) || isNaN(lng)) { return; }
+        const lat = parseFloat(item.lat); 
+        const lng = parseFloat(item.lng);
+        if (isNaN(lat) || isNaN(lng)) { 
+            // console.warn("Пропущен маркер с некорректными координатами:", item);
+            return; 
+        }
 
-        let shape = "border-radius:50%;";
-        if((item.tabloInfo||"").toLowerCase().includes("медиаборд")){ shape = "border-radius:0%;"; }
+        let shape = "border-radius:50%;"; // Круг по умолчанию
+        if((item.tabloInfo||"").toLowerCase().includes("медиаборд")){ shape = "border-radius:0%;"; } // Квадрат для медиаборда
+        
         const iconHTML = `<div style="width:18px; height:18px; background-color:${c}; border:1px solid #000; ${shape} box-shadow: 0 0 3px rgba(0,0,0,0.5);"></div>`;
-        const icon = L.divIcon({ className:'my-div-icon', html:iconHTML, iconSize:[18,18], iconAnchor: [9, 9] });
+        const icon = L.divIcon({ 
+            className:'my-div-icon', 
+            html:iconHTML, 
+            iconSize:[18,18], 
+            iconAnchor: [9, 9] // Центрирование иконки
+        });
         const marker = L.marker([lat,lng], {icon});
-        marker.myColor = c;
+        marker.myColor = c; // Сохраняем цвет для кластера
 
-        const stopNameVal = item.stopName || "(нет)";
-        // Поля из вашей таблицы для popup
-        const popup = `
-          <div style="font-weight:bold; font-size:1.1em; margin-bottom:5px;">${stopNameVal}</div>
-          <b>ID Табло:</b> ${item.tablo||"-"}<br>
-          <b>Улица:</b> ${item.street||"-"}<br>
-          <b>Направление:</b> ${item.direction||"-"}<br>
-          <b>Район:</b> ${item.district||"-"}<br>
-          <b>Тип павильона:</b> ${item.pavilionType||"-"}<br>
-          <b>Обустройство:</b> ${item.outfit||"-"}<br>
-          <b>Табло:</b> ${item.tabloInfo||"-"}<br>
-          <b>Очередь ITS:</b> ${item.itsQueue||"-"}<br>
-          <b>Статус:</b> ${item.status||"-"}<br> <b>Реклама:</b> ${item.reklama||"-"}<br> <b>План (мес):</b> ${item.plan||"-"}<br> <b>Перемещение:</b> ${item.move||"-"}<br> <b>Важность:</b> ${item.planning||"-"}<br> <b>Примечание:</b> ${item.note||"-"}
+        const popupContent = `
+          <b>ID Табло:</b> ${item.tablo || "-"}<br>
+          <b>Улица:</b> ${item.street || "-"}<br>
+          <b>Направление:</b> ${item.direction || "-"}<br>
+          <b>Район:</b> ${item.district || "-"}<br>
+          <b>План (мес):</b> ${item.plan || "-"}<br>
+          <b>Перемещение:</b> ${item.move || "-"}<br>
+          <b>Важность:</b> ${item.planning || "-"}
         `;
-        marker.bindPopup(popup);
+        marker.bindPopup(popupContent);
         markerClusterGroup.addLayer(marker);
       });
       map.addLayer(markerClusterGroup);
     }
 
     /***********************************************************
-     * 6) ФИЛЬТРАЦИЯ (упрощено)
+     * 6) ФИЛЬТРАЦИЯ
      ***********************************************************/
     function applyCombinedFilter() {
-      if (!markersData || markersData.length === 0) return;
+      if (!markersData || markersData.length === 0) {
+        if(markerClusterGroup) map.removeLayer(markerClusterGroup); // Очистить карту, если нет данных
+        updateLabels(0);
+        return;
+      }
 
       const filtered = markersData.filter(m => {
         const p_importance = (m.planning || "").toLowerCase().trim();
@@ -454,52 +475,64 @@
     }
 
     function updateLabels(count){
-      const total = markersData.length;
-      document.getElementById("planningImportanceLabel").innerText = `${selectedPlanningImportances.length > 0 ? selectedPlanningImportances.map(s => s.substring(0,3)).join(', ') : 'Все'} (${count})`;
+      // const total = markersData.length; // Если нужно общее количество
+      document.getElementById("planningImportanceLabel").innerText = `${selectedPlanningImportances.length > 0 ? selectedPlanningImportances.map(s => s.substring(0,3)).join('/') : 'Все'} (${count})`;
       document.getElementById("streetLabel").innerText = `${selectedStreets.length > 0 ? 'Выбрано' : 'Все'} (${count})`;
 
       document.querySelectorAll('.control-buttons .btn').forEach(b => b.classList.remove('active-filter'));
-      if (colorMode === 'planningImportance') {
+      if (colorMode === 'planningImportance') { // Подсвечиваем, если это текущий режим раскраски
         document.getElementById('planningImportanceToggle').classList.add('active-filter');
       }
     }
 
     /***********************************************************
-     * 7) ЗАГРУЗКА ДАННЫХ (без изменений в логике, URL проверьте)
+     * 7) ЗАГРУЗКА ДАННЫХ
      ***********************************************************/
     let markersLoaded = false;
-    fetch("https://script.google.com/macros/s/AKfycbxprxG-MDgk1ULTdQFAjpDr8_wPGkNnTmVjoawzUeGAFKRC-LgUPtRoTiBKVCWvQRAy/exec")
-      .then(r => { if (!r.ok) { throw new Error(`HTTP error! status: ${r.status}`); } return r.json(); })
+    // Убедитесь, что URL ниже указывает на ваш Google Apps Script, который возвращает JSON
+    fetch("https://script.google.com/macros/s/AKfycbxprxG-MDgk1ULTdQFAjpDr8_wPGkNnTmVjoawzUeGAFKRC-LgUPtRoTiBKVCWvQRAy/exec") 
+      .then(r => { 
+        if (!r.ok) { 
+          console.error("Ошибка ответа сервера:", r);
+          throw new Error(`HTTP error! status: ${r.status}`); 
+        } 
+        return r.json(); 
+      })
       .then(data => {
         markersData = data;
         markersLoaded = true;
         allStreets = [...new Set(markersData.map(item => (item.street || "Без улицы").trim()).filter(s => s))].sort();
-        // Применяем фильтры по умолчанию при загрузке, если нужно
-        // selectedPlanningImportances = ['высокий']; // Пример: по умолчанию показывать "высокий"
-        applyCombinedFilter();
-        updateLabels(markersData.length);
-        if (selectedPlanningImportances.length > 0) { // Активируем кнопку, если есть фильтр по умолчанию
-             document.getElementById('planningImportanceToggle').classList.add('active-filter');
-        }
+        applyCombinedFilter(); 
+        // По умолчанию кнопка "Важность" активна, т.к. colorMode = 'planningImportance'
+        document.getElementById('planningImportanceToggle').classList.add('active-filter'); 
       })
-      .catch(e => { console.error("Ошибка загрузки данных:", e); alert("Не удалось загрузить данные."); });
+      .catch(e => { 
+        console.error("Ошибка загрузки или обработки данных:", e); 
+        alert("Не удалось загрузить данные для карты. Проверьте консоль (F12) для деталей."); 
+      });
 
     /***********************************************************
-     * 8) ОБЩИЕ ФУНКЦИИ ПАНЕЛИ (без изменений)
+     * 8) ОБЩИЕ ФУНКЦИИ ПАНЕЛИ
      ***********************************************************/
     const overlay = document.getElementById("overlay");
     const bottomPanel = document.getElementById("bottomPanel");
     function togglePanel(title, contentHtml, isScrollable = false) {
       const panelTitleElem = document.getElementById("panelTitle");
       const panelContentElem = document.getElementById("panelContent");
-      if(bottomPanel.classList.contains("active") && panelTitleElem.innerText === title){ closePanel(); }
-      else {
-        panelTitleElem.innerText = title; panelContentElem.innerHTML = contentHtml;
+      if(bottomPanel.classList.contains("active") && panelTitleElem.innerText === title){ 
+        closePanel(); 
+      } else {
+        panelTitleElem.innerText = title; 
+        panelContentElem.innerHTML = contentHtml;
         panelContentElem.classList.toggle("panel-content-scrollable", isScrollable);
-        bottomPanel.classList.add("active"); overlay.style.display = "block";
+        bottomPanel.classList.add("active"); 
+        overlay.style.display = "block";
       }
     }
-    function closePanel() { bottomPanel.classList.remove("active"); overlay.style.display = "none"; }
+    function closePanel() { 
+      bottomPanel.classList.remove("active"); 
+      overlay.style.display = "none"; 
+    }
     overlay.addEventListener("click", closePanel);
 
     document.getElementById("legendToggle").addEventListener("click", () => {
@@ -510,8 +543,7 @@
             <div class="legend-row">
               <div class="legend-icon" style="background-color:${getPlanningImportanceColor(pi)};"></div> ${pi.charAt(0).toUpperCase() + pi.slice(1)}
             </div>`).join('')}
-           <div class="legend-row">
-              <div class="legend-icon" style="background-color:${getPlanningImportanceColor('неизвестно')}; border: 1px dashed #ccc;"></div> Другое/По умолчанию
+           <div class="legend-row"> <div class="legend-icon" style="background-color:${getPlanningImportanceColor('неопределено')}; border: 1px dashed #ccc;"></div> Другое/По умолч.
             </div>
         </div>
         <hr style="width:100%; border-top: 1px solid #eee; margin: 10px 0;">
@@ -525,35 +557,35 @@
             </div>
         </div>
       `;
-      togglePanel("Легенда", legendHtml, true);
+      togglePanel("Легенда", legendHtml, true); // Легенда может быть длинной
     });
 
     /***********************************************************
-     * 9) ОБРАБОТЧИКИ ФИЛЬТРОВ (упрощено)
+     * 9) ОБРАБОТЧИКИ ФИЛЬТРОВ
      ***********************************************************/
-    function createGenericFilterPanel(buttonId, panelTitle, itemsArray, selectedArrayRef, colorModeToSetIfAny) {
+    function createGenericFilterPanel(buttonId, panelTitle, itemsArrayProvider, selectedArrayRef, colorModeToSetIfAny) {
         document.getElementById(buttonId).addEventListener("click", () => {
-            if (colorModeToSetIfAny) { // Только если этот фильтр меняет режим цвета
+            if (!markersLoaded) { alert("Данные еще загружаются..."); return; }
+
+            if (colorModeToSetIfAny) { 
                 colorMode = colorModeToSetIfAny;
-                 // Сбрасываем другие "цветовые" фильтры, если есть (здесь только один такой)
-                if (colorModeToSetIfAny === 'planningImportance') {
-                    // selectedStreets не сбрасываем, т.к. это независимый фильтр
-                }
             }
 
             let html = `<div class="filter-buttons">`;
-            const itemSource = (typeof itemsArray === 'function') ? itemsArray() : itemsArray;
+            const itemsArray = itemsArrayProvider(); // Получаем актуальный список элементов (важно для allStreets)
 
-            itemSource.forEach(item => {
+            itemsArray.forEach(item => {
                 const val = typeof item === 'object' ? item.value : item;
                 const display = typeof item === 'object' ? item.display : item;
                 const active = selectedArrayRef.includes(val) ? "active" : "";
-                html += `<button class="${active}" onclick="toggleFilterItem('${buttonId}', '${val.replace(/'/g, "\\'")}')">${display}</button>`;
+                // Экранируем одинарные кавычки в значении для HTML атрибута onclick
+                const escapedVal = val.replace(/'/g, "\\'");
+                html += `<button class="${active}" onclick="toggleFilterItem('${buttonId}', '${escapedVal}')">${display}</button>`;
             });
             html += `<button class="clear-btn" onclick="clearFilterItems('${buttonId}')">Очистить</button></div>`;
             
-            togglePanel(panelTitle, html, itemSource.length > 10);
-            applyCombinedFilter(); // Обновить карту после возможного изменения colorMode
+            togglePanel(panelTitle, html, itemsArray.length > 10); // Прокрутка, если много элементов
+            applyCombinedFilter(); // Применяем фильтры сразу, чтобы обновить подсветку кнопки .active-filter
         });
     }
     
@@ -567,27 +599,64 @@
             if (index > -1) { currentSelectedArray.splice(index, 1); }
             else { currentSelectedArray.push(itemValue); }
         }
-        applyCombinedFilter();
-        document.getElementById(btnId).click(); // Переоткрыть панель
+        applyCombinedFilter(); // Применяем фильтр
+        // Переоткрываем панель, чтобы обновить состояние кнопок внутри нее
+        // Эмулируем клик, но нужно убедиться, что это не вызовет рекурсию или лишние действия
+        const panelButton = document.getElementById(btnId);
+        if (bottomPanel.classList.contains("active") && document.getElementById("panelTitle").innerText === panelButton.textContent.split(" ")[0]) {
+            panelButton.click(); // Закрыть
+            panelButton.click(); // Открыть снова с обновленным состоянием
+        } else {
+           // panelButton.click(); // Если была закрыта, просто открыть
+        }
+         // Вместо эмуляции клика, можно просто перерисовать контент панели, если она активна
+        if (bottomPanel.classList.contains("active") && document.getElementById("panelTitle").innerText === panelButton.dataset.panelTitle) {
+            // Логика перерисовки контента панели (если createGenericFilterPanel делает это)
+        }
+
     };
 
     window.clearFilterItems = function(btnId) {
+        let panelTitleForButton = "";
         if (btnId === 'planningImportanceToggle') {
             selectedPlanningImportances = [];
-            // colorMode = 'default'; // или оставить 'planningImportance', но без выбранных элементов
+            panelTitleForButton = "Планирование (Важность)";
+             // colorMode = 'planningImportance'; // Остается текущим режимом
         } else if (btnId === 'streetToggle') {
             selectedStreets = [];
+            panelTitleForButton = "Фильтр по улицам";
         }
         applyCombinedFilter();
-        document.getElementById(btnId).click(); // Переоткрыть панель
+        // Чтобы панель осталась открытой и обновилась
+        if (bottomPanel.classList.contains("active") && document.getElementById("panelTitle").innerText === panelTitleForButton) {
+             document.getElementById(btnId).click(); // Закрыть
+             document.getElementById(btnId).click(); // Открыть снова
+        }
     };
     
-    createGenericFilterPanel("planningImportanceToggle", "Планирование (Важность)", planningImportanceCategories.map(pi => ({value: pi, display: pi.charAt(0).toUpperCase() + pi.slice(1)})), selectedPlanningImportances, 'planningImportance');
-    createGenericFilterPanel("streetToggle", "Фильтр по улицам", () => allStreets, selectedStreets, null); // null - не меняет colorMode
+    createGenericFilterPanel(
+        "planningImportanceToggle", 
+        "Планирование (Важность)", 
+        () => planningImportanceCategories.map(pi => ({value: pi, display: pi.charAt(0).toUpperCase() + pi.slice(1)})), 
+        selectedPlanningImportances, 
+        'planningImportance'
+    );
+    // data-panel-title используется для сопоставления в clearFilterItems и toggleFilterItem
+    document.getElementById("planningImportanceToggle").dataset.panelTitle = "Планирование (Важность)";
+
+
+    createGenericFilterPanel(
+        "streetToggle", 
+        "Фильтр по улицам", 
+        () => allStreets, // allStreets будет функцией, возвращающей массив
+        selectedStreets, 
+        null // Этот фильтр не меняет colorMode
+    );
+    document.getElementById("streetToggle").dataset.panelTitle = "Фильтр по улицам";
 
 
     /***********************************************************
-     * 10) ПОИСК (упрощено)
+     * 10) ПОИСК
      ***********************************************************/
     document.getElementById("searchBtn").addEventListener("click", doSearch);
     document.getElementById("searchInput").addEventListener("keypress", e => { if(e.key === "Enter") doSearch(); });
@@ -595,23 +664,27 @@
     function doSearch() {
       const query = document.getElementById("searchInput").value.toLowerCase().trim();
       if (!markersData || markersData.length === 0) return;
-      if (!query) { applyCombinedFilter(); return; }
+      if (!query) { applyCombinedFilter(); return; } // Если поиск пуст, просто применяем фильтры
 
-      const filteredBySelection = markersData.filter(m => {
+      const filteredBySearchAndFilters = markersData.filter(m => {
+        // 1. Проверка по основным фильтрам
         const p_importance = (m.planning || "").toLowerCase().trim();
         const passPlanningImportance = (selectedPlanningImportances.length === 0) || selectedPlanningImportances.includes(p_importance);
 
         const str = (m.street || "Без улицы").trim();
         const passStreet = (selectedStreets.length === 0) || selectedStreets.includes(str);
         
-        if (!(passPlanningImportance && passStreet)) { return false; }
+        if (!(passPlanningImportance && passStreet)) { 
+            return false; // Не проходит по активным фильтрам
+        }
 
-        const stopNameVal = (m.stopName || "").toLowerCase();
+        // 2. Проверка по поисковому запросу
+        const stopNameVal = (m.stopName || "").toLowerCase(); // stopName может все еще быть в данных
         const tabloVal = String(m.tablo || "").toLowerCase();
         return stopNameVal.includes(query) || tabloVal.includes(query);
       });
-      addMarkers(filteredBySelection);
-      updateLabels(filteredBySelection.length);
+      addMarkers(filteredBySearchAndFilters);
+      updateLabels(filteredBySearchAndFilters.length);
     }
   </script>
 </body>
