@@ -11,6 +11,7 @@
 
 <style>
   html,body,#map{height:100%;margin:0}
+
   /* верхняя выезжающая строка поиска */
   #bar{position:fixed;left:0;right:0;top:-64px;display:flex;gap:8px;justify-content:center;padding:8px;background:rgba(255,255,255,.95);box-shadow:0 2px 6px rgba(0,0,0,.2);transition:.25s;z-index:10}
   #hover{position:fixed;left:0;right:0;top:0;height:10px;z-index:11}
@@ -18,13 +19,13 @@
   #bar input,#bar button{font:14px/1.2 system-ui;padding:8px 10px;border:1px solid #ccc;border-radius:8px}
   #bar button{background:#007bff;color:#fff;border:none;cursor:pointer}
 
-  /* Кнопки снизу — всегда видны */
+  /* Кнопки снизу — ВСЕГДА СВЕРХУ */
   .controls{
     position:fixed;bottom:0;left:0;right:0;
     display:flex;gap:8px;justify-content:center;align-items:center;
-    background:rgba(255,255,255,.95);padding:10px 8px;
+    background:rgba(255,255,255,.97);padding:10px 8px;
     box-shadow:0 -2px 8px rgba(0,0,0,.25);
-    z-index:12;
+    z-index:9999; /* самый верхний слой */
   }
   .btn{
     background:#007bff;color:#fff;border:none;border-radius:10px;padding:10px 14px;
@@ -32,12 +33,18 @@
   }
   .btn.active{background:#0056b3;box-shadow:0 0 0 2px #fff,0 0 0 4px #0056b3}
 
-  /* панель легенды */
-  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:13}
-  .panel{position:fixed;left:50%;transform:translateX(-50%);bottom:-100%;
-    width:92%;max-width:520px;max-height:70%;background:#fff;border-radius:18px 18px 0 0;
-    padding:16px;box-shadow:0 -4px 16px rgba(0,0,0,.25);transition:.35s;z-index:14;overflow:auto}
-  .panel.active{bottom:72px} /* поднимаем над блоком кнопок */
+  /* Оверлей/панель — ниже кнопок */
+  .overlay{
+    position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:9000;
+  }
+  .panel{
+    position:fixed;left:50%;transform:translateX(-50%);bottom:-100%;
+    width:92%;max-width:520px;max-height:70%;
+    background:#fff;border-radius:18px 18px 0 0;
+    padding:16px;box-shadow:0 -4px 16px rgba(0,0,0,.25);
+    transition:bottom .35s;z-index:9500;overflow:auto;
+  }
+  .panel.active{ bottom: var(--controls-height, 72px); } /* отступ под кнопки */
 
   .legend .row{display:flex;align-items:center;gap:10px;margin:8px 0}
   .ico{width:22px;height:22px;border:1px solid #000;display:inline-block;border-radius:50%}
@@ -47,12 +54,12 @@
   /* Подсказка-сводка внизу (над кнопками) */
   .hint{
     position:fixed;left:50%;transform:translateX(-50%);
-    bottom:64px; /* над контролами */
+    bottom: calc(var(--controls-height, 72px) + 8px); /* над контролами */
     background:rgba(255,255,255,.98);
-    border:1px solid #e5e7eb; border-radius:12px;
+    border:1px solid #e5e7eb;border-radius:12px;
     box-shadow:0 6px 20px rgba(0,0,0,.18);
     padding:10px 12px 8px 12px; min-width:220px; max-width:92%;
-    z-index:13;
+    z-index:9800;
   }
   .hint .close{
     position:absolute; left:8px; top:8px; width:22px; height:22px;
@@ -60,14 +67,8 @@
     display:flex; align-items:center; justify-content:center;
     box-shadow:0 1px 2px rgba(0,0,0,.1);
   }
-  .hint .title{
-    font:600 14px/1.2 system-ui; text-align:center; padding-left:22px; /* место под крестик */
-    margin-bottom:8px;
-  }
-  .hint .grid{
-    display:grid; grid-template-columns:auto auto; gap:6px 12px; align-items:center;
-    font:13px/1.2 system-ui;
-  }
+  .hint .title{ font:600 14px/1.2 system-ui; text-align:center; padding-left:22px; margin-bottom:8px; }
+  .hint .grid{ display:grid; grid-template-columns:auto auto; gap:6px 12px; align-items:center; font:13px/1.2 system-ui; }
   .dot{display:inline-block; width:12px; height:12px; border-radius:50%; border:1px solid #000; margin-right:6px; vertical-align:-2px;}
   .sq-sm{display:inline-block; width:12px; height:12px; border-radius:3px; border:1px solid #000; margin-right:6px; vertical-align:-2px;}
   .tri-sm{display:inline-block; width:0; height:0; border-left:6px solid transparent; border-right:6px solid transparent; margin-right:6px; vertical-align:-1px;}
@@ -75,7 +76,6 @@
   @media (max-width:600px){
     #bar input{width:60%}
     .btn{padding:9px 12px;font-size:13px}
-    .hint{bottom:70px}
   }
 </style>
 </head>
@@ -91,7 +91,7 @@
   <div id="map"></div>
 
   <!-- всегда видимые кнопки -->
-  <div class="controls">
+  <div class="controls" id="controls">
     <button class="btn active" id="modeWorks">Работает</button>
     <button class="btn" id="modeStatus">Статус</button>
     <button class="btn" id="legendBtn">Легенда</button>
@@ -205,6 +205,7 @@ let hintClosed=false;
       data=Array.isArray(json)?json:(json.data||[]);
       writeCache(data);
     }
+    // предобработка
     data=data.map(r=>{
       const lat=+r[K.lat], lng=+r[K.lng];
       return {...r, _lat:lat, _lng:lng,
@@ -216,6 +217,9 @@ let hintClosed=false;
         _tech:String(r[K.tech]??"").trim().toLowerCase(),
       };
     }).filter(r=>!Number.isNaN(r._lat)&&!Number.isNaN(r._lng));
+
+    // синхронизируем высоту кнопок (влияние на панель/подсказку)
+    syncControlsHeight();
 
     view=data; draw(); fit(view);
   }catch(e){ console.error(e); alert("Не удалось загрузить данные"); }
@@ -238,14 +242,13 @@ function draw(){
   clearAllClusters();
   const rules=RULES[mode];
 
-  // батчи для кластеров и счётчики для подсказки
-  const batches=new Map();
-  const stats=new Map(); // label -> count (разные наборы для режимов)
+  const batches=new Map(); // key -> [markers]
+  const stats=new Map();   // label -> count
 
   for(const r of view){
     const rule=rules.find(x=>x.when(r));
     const {shape,color}=rule;
-    // маркер
+
     const m=L.marker([r._lat,r._lng],{icon:getIcon(shape,color)});
     m.bindPopup(
       `<b>ID:</b> ${esc(r[K.id])}<br><b>Название:</b> ${esc(r[K.stop])}<br><b>Улица:</b> ${esc(r[K.street])}<br><b>Направление:</b> ${esc(r[K.dir])}<br><b>Район:</b> ${esc(r[K.dist])}<br><b>Работает:</b> ${esc(r[K.work])}<br><b>Согласование:</b> ${esc(r[K.agr])}<br><b>Отвод:</b> ${esc(r[K.all])}<br><b>Тех усл.:</b> ${esc(r[K.tech])}<br><b>Статус уст.:</b> ${esc(r[K.inst])}<br><b>Примечание:</b> ${esc(r[K.note])}`
@@ -254,17 +257,15 @@ function draw(){
     if(!batches.has(key)) batches.set(key, []);
     batches.get(key).push(m);
 
-    // статистика
     if(mode==="works"){
       const label = eq(r[K.work],"да") ? "Да" : eq(r[K.work],"нет") ? "Нет" : "Пусто";
       stats.set(label, (stats.get(label)||0)+1);
     }else{
-      const label = rule.legend; // уже красивые подписи
+      const label = rule.legend;
       stats.set(label, (stats.get(label)||0)+1);
     }
   }
 
-  // Добавление в кластеры
   for(const [key, markers] of batches){
     const [shape,color]=key.split("|");
     const g=getCluster(shape,color);
@@ -342,42 +343,8 @@ document.getElementById("hintClose").onclick=()=>{ hintClosed=true; hintEl.style
 function setHintTitle(){ hintTitle.textContent = (mode==="works" ? "Работает" : "Статус"); }
 
 function updateHint(statsMap){
-  if(hintClosed) return; // пользователь скрыл — не показываем
+  if(hintClosed) return;
   setHintTitle();
 
-  // Формируем компактную сетку: label -> count
   const orderWorks=["Да","Нет","Пусто"];
-  const orderStatus=["Готово","Фундамент","Сеть","Каркас","Согласован","Отвод","Тех усл.","Да (fallback)","Нет (fallback)","Пусто (fallback)"];
-
-  const parts=[];
-  const pushRow=(htmlLabel,count)=>{ parts.push(`<div>${htmlLabel}</div><div><b>${count}</b></div>`); };
-
-  if(mode==="works"){
-    const colorOf = lbl => lbl==="Да"?C.yes:lbl==="Нет"?C.no:C.na;
-    orderWorks.forEach(lbl=>{
-      const c=colorOf(lbl);
-      pushRow(`<span class="dot" style="background:${c}"></span>${lbl}`, statsMap.get(lbl)||0);
-    });
-  }else{
-    // легенды → соответствующие маркеры
-    const badge = lbl => {
-      if(lbl==="Готово") return `<span class="dot" style="background:${C.yes}"></span>${lbl}`;
-      if(lbl==="Фундамент") return `<span class="tri-sm" style="border-bottom:12px solid ${C.violet}"></span>${lbl}`;
-      if(lbl==="Сеть")      return `<span class="tri-sm" style="border-bottom:12px solid ${C.orange}"></span>${lbl}`;
-      if(lbl==="Каркас")    return `<span class="tri-sm" style="border-bottom:12px solid ${C.green}"></span>${lbl}`;
-      if(lbl==="Согласован")return `<span class="sq-sm"  style="background:${C.blue}"></span>${lbl}`;
-      if(lbl==="Отвод")     return `<span class="sq-sm"  style="background:${C.yellow}"></span>${lbl}`;
-      if(lbl==="Тех усл.")  return `<span class="sq-sm"  style="background:${C.orange}"></span>${lbl}`;
-      if(lbl.includes("Да"))return `<span class="dot"   style="background:${C.yes}"></span>${lbl}`;
-      if(lbl.includes("Нет"))return `<span class="dot"  style="background:${C.no}"></span>${lbl}`;
-      return `<span class="dot" style="background:${C.na}"></span>${lbl}`;
-    };
-    orderStatus.forEach(lbl=> pushRow(badge(lbl), statsMap.get(lbl)||0));
-  }
-
-  hintGrid.innerHTML = parts.join("");
-  hintEl.style.display = "block";
-}
-</script>
-</body>
-</html>
+  const orderStatus=["Готово","Фундамент","Сеть","Каркас","Согласован","Отво]()
