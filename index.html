@@ -38,13 +38,44 @@
     width:92%;max-width:520px;max-height:70%;background:#fff;border-radius:18px 18px 0 0;
     padding:16px;box-shadow:0 -4px 16px rgba(0,0,0,.25);transition:.35s;z-index:14;overflow:auto}
   .panel.active{bottom:72px} /* поднимаем над блоком кнопок */
+
   .legend .row{display:flex;align-items:center;gap:10px;margin:8px 0}
   .ico{width:22px;height:22px;border:1px solid #000;display:inline-block;border-radius:50%}
   .sq{border-radius:4px}
   .tri{border:none;width:0;height:0;border-left:11px solid transparent;border-right:11px solid transparent}
+
+  /* Подсказка-сводка внизу (над кнопками) */
+  .hint{
+    position:fixed;left:50%;transform:translateX(-50%);
+    bottom:64px; /* над контролами */
+    background:rgba(255,255,255,.98);
+    border:1px solid #e5e7eb; border-radius:12px;
+    box-shadow:0 6px 20px rgba(0,0,0,.18);
+    padding:10px 12px 8px 12px; min-width:220px; max-width:92%;
+    z-index:13;
+  }
+  .hint .close{
+    position:absolute; left:8px; top:8px; width:22px; height:22px;
+    border:none; border-radius:6px; background:#f3f4f6; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 1px 2px rgba(0,0,0,.1);
+  }
+  .hint .title{
+    font:600 14px/1.2 system-ui; text-align:center; padding-left:22px; /* место под крестик */
+    margin-bottom:8px;
+  }
+  .hint .grid{
+    display:grid; grid-template-columns:auto auto; gap:6px 12px; align-items:center;
+    font:13px/1.2 system-ui;
+  }
+  .dot{display:inline-block; width:12px; height:12px; border-radius:50%; border:1px solid #000; margin-right:6px; vertical-align:-2px;}
+  .sq-sm{display:inline-block; width:12px; height:12px; border-radius:3px; border:1px solid #000; margin-right:6px; vertical-align:-2px;}
+  .tri-sm{display:inline-block; width:0; height:0; border-left:6px solid transparent; border-right:6px solid transparent; margin-right:6px; vertical-align:-1px;}
+
   @media (max-width:600px){
     #bar input{width:60%}
     .btn{padding:9px 12px;font-size:13px}
+    .hint{bottom:70px}
   }
 </style>
 </head>
@@ -64,6 +95,13 @@
     <button class="btn active" id="modeWorks">Работает</button>
     <button class="btn" id="modeStatus">Статус</button>
     <button class="btn" id="legendBtn">Легенда</button>
+  </div>
+
+  <!-- подсказка-сводка -->
+  <div class="hint" id="hint">
+    <button class="close" id="hintClose" title="Скрыть">✕</button>
+    <div class="title" id="hintTitle">Работает</div>
+    <div class="grid" id="hintGrid"></div>
   </div>
 
   <!-- легенда -->
@@ -88,16 +126,16 @@ const RULES={
     {when:_=>true,                shape:"circle", color:C.na,  label:"Пусто/Не установлен"},
   ],
   status:[
-    {when:r=>eq(r[K.inst],"готово"),    shape:"circle",   color:C.yes,    legend:"Статус: Готово"},
-    {when:r=>eq(r[K.inst],"фундамент"), shape:"triangle", color:C.violet, legend:"Статус: Фундамент"},
-    {when:r=>eq(r[K.inst],"сеть"),      shape:"triangle", color:C.orange, legend:"Статус: Сеть"},
-    {when:r=>eq(r[K.inst],"каркас"),    shape:"triangle", color:C.green,  legend:"Статус: Каркас"},
-    {when:r=>eq(r[K.agr],"согласован"), shape:"square",   color:C.blue,   legend:"Согласование: Согласован"},
-    {when:r=>eq(r[K.all],"да"),         shape:"square",   color:C.yellow, legend:"Отвод: Да"},
-    {when:r=>eq(r[K.tech],"да"),        shape:"square",   color:C.orange, legend:"Тех условие: Да"},
-    {when:r=>eq(r[K.work],"да"),        shape:"circle",   color:C.yes,    legend:"Работает: Да (fallback)"},
-    {when:r=>eq(r[K.work],"нет"),       shape:"circle",   color:C.no,     legend:"Работает: Нет (fallback)"},
-    {when:_=>true,                      shape:"circle",   color:C.na,     legend:"Пусто/Не установлен (fallback)"},
+    {when:r=>eq(r[K.inst],"готово"),    shape:"circle",   color:C.yes,    legend:"Готово"},
+    {when:r=>eq(r[K.inst],"фундамент"), shape:"triangle", color:C.violet, legend:"Фундамент"},
+    {when:r=>eq(r[K.inst],"сеть"),      shape:"triangle", color:C.orange, legend:"Сеть"},
+    {when:r=>eq(r[K.inst],"каркас"),    shape:"triangle", color:C.green,  legend:"Каркас"},
+    {when:r=>eq(r[K.agr],"согласован"), shape:"square",   color:C.blue,   legend:"Согласован"},
+    {when:r=>eq(r[K.all],"да"),         shape:"square",   color:C.yellow, legend:"Отвод"},
+    {when:r=>eq(r[K.tech],"да"),        shape:"square",   color:C.orange, legend:"Тех усл."},
+    {when:r=>eq(r[K.work],"да"),        shape:"circle",   color:C.yes,    legend:"Да (fallback)"},
+    {when:r=>eq(r[K.work],"нет"),       shape:"circle",   color:C.no,     legend:"Нет (fallback)"},
+    {when:_=>true,                      shape:"circle",   color:C.na,     legend:"Пусто (fallback)"},
   ]
 };
 
@@ -125,7 +163,6 @@ function makeCluster(fixedColor){
     }
   });
 }
-// key="shape|color" -> MarkerClusterGroup
 const clusterRegistry=new Map();
 function getCluster(shape,color){
   const key=shape+"|"+color;
@@ -156,6 +193,7 @@ function getIcon(shape,color){
 /* ===== 6. Состояние ===== */
 let mode="works";
 let data=[], view=[];
+let hintClosed=false;
 
 /* ===== 7. Загрузка с кэшем ===== */
 (async function init(){
@@ -167,7 +205,6 @@ let data=[], view=[];
       data=Array.isArray(json)?json:(json.data||[]);
       writeCache(data);
     }
-    // предобработка
     data=data.map(r=>{
       const lat=+r[K.lat], lng=+r[K.lng];
       return {...r, _lat:lat, _lng:lng,
@@ -196,31 +233,45 @@ function writeCache(rows){
   try{ localStorage.setItem("stops_cache_v1", JSON.stringify({ts:now(), rows})); }catch{}
 }
 
-/* ===== 8. Отрисовка ===== */
+/* ===== 8. Отрисовка + сводка ===== */
 function draw(){
   clearAllClusters();
   const rules=RULES[mode];
 
-  // батчи: key(shape|color) -> [markers]
+  // батчи для кластеров и счётчики для подсказки
   const batches=new Map();
+  const stats=new Map(); // label -> count (разные наборы для режимов)
 
   for(const r of view){
-    const {shape,color}=rules.find(x=>x.when(r));
-    const m=L.marker([r._lat,r._lng],{icon:getIcon(shape,color)}); m.__c=color;
+    const rule=rules.find(x=>x.when(r));
+    const {shape,color}=rule;
+    // маркер
+    const m=L.marker([r._lat,r._lng],{icon:getIcon(shape,color)});
     m.bindPopup(
       `<b>ID:</b> ${esc(r[K.id])}<br><b>Название:</b> ${esc(r[K.stop])}<br><b>Улица:</b> ${esc(r[K.street])}<br><b>Направление:</b> ${esc(r[K.dir])}<br><b>Район:</b> ${esc(r[K.dist])}<br><b>Работает:</b> ${esc(r[K.work])}<br><b>Согласование:</b> ${esc(r[K.agr])}<br><b>Отвод:</b> ${esc(r[K.all])}<br><b>Тех усл.:</b> ${esc(r[K.tech])}<br><b>Статус уст.:</b> ${esc(r[K.inst])}<br><b>Примечание:</b> ${esc(r[K.note])}`
     );
     const key=shape+"|"+color;
     if(!batches.has(key)) batches.set(key, []);
     batches.get(key).push(m);
+
+    // статистика
+    if(mode==="works"){
+      const label = eq(r[K.work],"да") ? "Да" : eq(r[K.work],"нет") ? "Нет" : "Пусто";
+      stats.set(label, (stats.get(label)||0)+1);
+    }else{
+      const label = rule.legend; // уже красивые подписи
+      stats.set(label, (stats.get(label)||0)+1);
+    }
   }
 
-  // добавляем пачками в соответствующий кластер
+  // Добавление в кластеры
   for(const [key, markers] of batches){
     const [shape,color]=key.split("|");
     const g=getCluster(shape,color);
     g.addLayers(markers);
   }
+
+  updateHint(stats);
 }
 
 function fit(rows){
@@ -242,8 +293,8 @@ q.addEventListener("input", debounce(applySearch,200), {passive:true});
 /* ===== 10. Режимы ===== */
 const btnW=document.getElementById("modeWorks");
 const btnS=document.getElementById("modeStatus");
-btnW.onclick=()=>{ mode="works"; btnW.classList.add("active"); btnS.classList.remove("active"); draw(); };
-btnS.onclick=()=>{ mode="status"; btnS.classList.add("active"); btnW.classList.remove("active"); draw(); };
+btnW.onclick=()=>{ mode="works"; btnW.classList.add("active"); btnS.classList.remove("active"); draw(); setHintTitle(); };
+btnS.onclick=()=>{ mode="status"; btnS.classList.add("active"); btnW.classList.remove("active"); draw(); setHintTitle(); };
 
 /* ===== 11. Легенда ===== */
 const ov=document.getElementById("ov"), panel=document.getElementById("panel");
@@ -260,18 +311,18 @@ function setLegend(){
     `;
   }else{
     box.innerHTML=`
-      <div class="row"><span class="ico" style="background:${C.yes}"></span> Статус: Готово</div>
-      <div class="row"><span class="tri" style="border-bottom:22px solid ${C.violet}"></span> Статус: Фундамент</div>
-      <div class="row"><span class="tri" style="border-bottom:22px solid ${C.orange}"></span> Статус: Сеть</div>
-      <div class="row"><span class="tri" style="border-bottom:22px solid ${C.green}"></span> Статус: Каркас</div>
+      <div class="row"><span class="ico" style="background:${C.yes}"></span> Готово</div>
+      <div class="row"><span class="tri" style="border-bottom:22px solid ${C.violet}"></span> Фундамент</div>
+      <div class="row"><span class="tri" style="border-bottom:22px solid ${C.orange}"></span> Сеть</div>
+      <div class="row"><span class="tri" style="border-bottom:22px solid ${C.green}"></span> Каркас</div>
       <hr/>
-      <div class="row"><span class="ico sq" style="background:${C.blue}"></span> Согласование: Согласован</div>
-      <div class="row"><span class="ico sq" style="background:${C.yellow}"></span> Отвод: Да</div>
-      <div class="row"><span class="ico sq" style="background:${C.orange}"></span> Тех условие: Да</div>
+      <div class="row"><span class="ico sq" style="background:${C.blue}"></span> Согласован</div>
+      <div class="row"><span class="ico sq" style="background:${C.yellow}"></span> Отвод</div>
+      <div class="row"><span class="ico sq" style="background:${C.orange}"></span> Тех усл.</div>
       <hr/>
-      <div class="row"><span class="ico" style="background:${C.yes}"></span> Работает: Да (fallback)</div>
-      <div class="row"><span class="ico" style="background:${C.no}"></span> Работает: Нет (fallback)</div>
-      <div class="row"><span class="ico" style="background:${C.na}"></span> Пусто/Не установлен (fallback)</div>
+      <div class="row"><span class="ico" style="background:${C.yes}"></span> Да (fallback)</div>
+      <div class="row"><span class="ico" style="background:${C.no}"></span> Нет (fallback)</div>
+      <div class="row"><span class="ico" style="background:${C.na}"></span> Пусто (fallback)</div>
     `;
   }
 }
@@ -281,6 +332,52 @@ const bar=document.getElementById("bar"), hover=document.getElementById("hover")
 let t; const show=()=>{clearTimeout(t);bar.classList.add("show")}, hide=()=>bar.classList.remove("show");
 hover.addEventListener("mouseenter", show); hover.addEventListener("mouseleave", ()=>t=setTimeout(hide,1200));
 hover.addEventListener("touchstart", show, {passive:true}); bar.addEventListener("mouseleave", ()=>t=setTimeout(hide,1200));
+
+/* ===== 13. Подсказка-сводка ===== */
+const hintEl=document.getElementById("hint");
+const hintTitle=document.getElementById("hintTitle");
+const hintGrid=document.getElementById("hintGrid");
+document.getElementById("hintClose").onclick=()=>{ hintClosed=true; hintEl.style.display="none"; };
+
+function setHintTitle(){ hintTitle.textContent = (mode==="works" ? "Работает" : "Статус"); }
+
+function updateHint(statsMap){
+  if(hintClosed) return; // пользователь скрыл — не показываем
+  setHintTitle();
+
+  // Формируем компактную сетку: label -> count
+  const orderWorks=["Да","Нет","Пусто"];
+  const orderStatus=["Готово","Фундамент","Сеть","Каркас","Согласован","Отвод","Тех усл.","Да (fallback)","Нет (fallback)","Пусто (fallback)"];
+
+  const parts=[];
+  const pushRow=(htmlLabel,count)=>{ parts.push(`<div>${htmlLabel}</div><div><b>${count}</b></div>`); };
+
+  if(mode==="works"){
+    const colorOf = lbl => lbl==="Да"?C.yes:lbl==="Нет"?C.no:C.na;
+    orderWorks.forEach(lbl=>{
+      const c=colorOf(lbl);
+      pushRow(`<span class="dot" style="background:${c}"></span>${lbl}`, statsMap.get(lbl)||0);
+    });
+  }else{
+    // легенды → соответствующие маркеры
+    const badge = lbl => {
+      if(lbl==="Готово") return `<span class="dot" style="background:${C.yes}"></span>${lbl}`;
+      if(lbl==="Фундамент") return `<span class="tri-sm" style="border-bottom:12px solid ${C.violet}"></span>${lbl}`;
+      if(lbl==="Сеть")      return `<span class="tri-sm" style="border-bottom:12px solid ${C.orange}"></span>${lbl}`;
+      if(lbl==="Каркас")    return `<span class="tri-sm" style="border-bottom:12px solid ${C.green}"></span>${lbl}`;
+      if(lbl==="Согласован")return `<span class="sq-sm"  style="background:${C.blue}"></span>${lbl}`;
+      if(lbl==="Отвод")     return `<span class="sq-sm"  style="background:${C.yellow}"></span>${lbl}`;
+      if(lbl==="Тех усл.")  return `<span class="sq-sm"  style="background:${C.orange}"></span>${lbl}`;
+      if(lbl.includes("Да"))return `<span class="dot"   style="background:${C.yes}"></span>${lbl}`;
+      if(lbl.includes("Нет"))return `<span class="dot"  style="background:${C.no}"></span>${lbl}`;
+      return `<span class="dot" style="background:${C.na}"></span>${lbl}`;
+    };
+    orderStatus.forEach(lbl=> pushRow(badge(lbl), statsMap.get(lbl)||0));
+  }
+
+  hintGrid.innerHTML = parts.join("");
+  hintEl.style.display = "block";
+}
 </script>
 </body>
 </html>
