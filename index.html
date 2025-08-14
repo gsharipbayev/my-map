@@ -3,51 +3,84 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Остановки Астана — Быстрая карта</title>
+<title>Остановки Астана — Работает / Статус</title>
+
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+
 <style>
   html,body,#map{height:100%;margin:0}
-  #bar{position:fixed;left:0;right:0;top:-64px;display:flex;gap:8px;justify-content:center;padding:8px;background:rgba(255,255,255,.95);box-shadow:0 2px 6px rgba(0,0,0,.2);transition:.25s;z-index:3}
-  #hover{position:fixed;inset:0 0 auto 0;height:10px;z-index:4}
-  #bar.show{top:0} input,button{font:14px/1.2 system-ui;padding:8px 10px;border:1px solid #ccc;border-radius:8px}
-  #bar button{background:#007bff;color:#fff;border:none}
-  .controls{position:fixed;left:50%;bottom:10px;transform:translateX(-50%);display:flex;gap:8px;z-index:2}
-  .btn{background:#007bff;color:#fff;border:none;border-radius:10px;padding:10px 14px;box-shadow:0 2px 6px rgba(0,0,0,.2);cursor:pointer}
+  /* верхняя выезжающая строка поиска */
+  #bar{position:fixed;left:0;right:0;top:-64px;display:flex;gap:8px;justify-content:center;padding:8px;background:rgba(255,255,255,.95);box-shadow:0 2px 6px rgba(0,0,0,.2);transition:.25s;z-index:10}
+  #hover{position:fixed;left:0;right:0;top:0;height:10px;z-index:11}
+  #bar.show{top:0}
+  #bar input,#bar button{font:14px/1.2 system-ui;padding:8px 10px;border:1px solid #ccc;border-radius:8px}
+  #bar button{background:#007bff;color:#fff;border:none;cursor:pointer}
+
+  /* Кнопки снизу — всегда видны */
+  .controls{
+    position:fixed;bottom:0;left:0;right:0;
+    display:flex;gap:8px;justify-content:center;align-items:center;
+    background:rgba(255,255,255,.95);padding:10px 8px;
+    box-shadow:0 -2px 8px rgba(0,0,0,.25);
+    z-index:12;
+  }
+  .btn{
+    background:#007bff;color:#fff;border:none;border-radius:10px;padding:10px 14px;
+    box-shadow:0 2px 6px rgba(0,0,0,.2);cursor:pointer;font:14px/1.2 system-ui
+  }
   .btn.active{background:#0056b3;box-shadow:0 0 0 2px #fff,0 0 0 4px #0056b3}
-  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:2}
-  .panel{position:fixed;left:50%;transform:translateX(-50%);bottom:-100%;width:92%;max-width:520px;max-height:70%;background:#fff;border-radius:18px 18px 0 0;padding:16px;box-shadow:0 -4px 16px rgba(0,0,0,.25);transition:.35s;z-index:3;overflow:auto}
-  .panel.active{bottom:0} .legend .row{display:flex;align-items:center;gap:10px;margin:8px 0}
+
+  /* панель легенды */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:13}
+  .panel{position:fixed;left:50%;transform:translateX(-50%);bottom:-100%;
+    width:92%;max-width:520px;max-height:70%;background:#fff;border-radius:18px 18px 0 0;
+    padding:16px;box-shadow:0 -4px 16px rgba(0,0,0,.25);transition:.35s;z-index:14;overflow:auto}
+  .panel.active{bottom:72px} /* поднимаем над блоком кнопок */
+  .legend .row{display:flex;align-items:center;gap:10px;margin:8px 0}
   .ico{width:22px;height:22px;border:1px solid #000;display:inline-block;border-radius:50%}
-  .sq{border-radius:4px} .tri{border:none;width:0;height:0;border-left:11px solid transparent;border-right:11px solid transparent}
+  .sq{border-radius:4px}
+  .tri{border:none;width:0;height:0;border-left:11px solid transparent;border-right:11px solid transparent}
+  @media (max-width:600px){
+    #bar input{width:60%}
+    .btn{padding:9px 12px;font-size:13px}
+  }
 </style>
 </head>
 <body>
-<div id="hover"></div>
-<div id="bar">
-  <input id="q" placeholder="ID или Название остановки" />
-  <button id="find">🔍 Поиск</button>
-</div>
-<div id="map"></div>
-<div class="controls">
-  <button class="btn active" id="modeWorks">Работает</button>
-  <button class="btn" id="modeStatus">Статус</button>
-  <button class="btn" id="legendBtn">Легенда</button>
-</div>
-<div class="overlay" id="ov"></div>
-<div class="panel" id="panel"><div id="legend" class="legend"></div></div>
+  <!-- выезжающий поиск -->
+  <div id="hover"></div>
+  <div id="bar">
+    <input id="q" placeholder="ID или Название остановки"/>
+    <button id="find">🔍 Поиск</button>
+  </div>
+
+  <!-- карта -->
+  <div id="map"></div>
+
+  <!-- всегда видимые кнопки -->
+  <div class="controls">
+    <button class="btn active" id="modeWorks">Работает</button>
+    <button class="btn" id="modeStatus">Статус</button>
+    <button class="btn" id="legendBtn">Легенда</button>
+  </div>
+
+  <!-- легенда -->
+  <div class="overlay" id="ov"></div>
+  <div class="panel" id="panel"><div id="legend" class="legend"></div></div>
 
 <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script>
-/* ==== 0. Конфиг/ключи ==== */
+/* ===== 0. Конфиг ===== */
 const DATA_URL = "https://script.google.com/macros/s/AKfycbykrfvSNKlLMLRPbuxuUtqD_-o1chp-wIIW6-OFW-BjabiBw9QIDUtNwmvxXj9x4igx/exec";
 const CENTER=[51.128,71.43], ZOOM=12, CACHE_TTL_MS=60_000;
+
 const K={ id:"ID Остановки", stop:"Название остановок", street:"Наименование улицы", dir:"Направление", dist:"Район", lat:"широта", lng:"Долгота", work:"Работает", agr:"Согласование сит. схем", all:"Отвод", tech:"Тех условие", inst:"Статус установки", note:"Примечание" };
 const C={ yes:"#00c853", no:"#ff1744", na:"#9e9e9e", blue:"#2196f3", yellow:"#ffeb3b", orange:"#ff9800", violet:"#8e24aa", green:"#2e7d32", cluster:"#555" };
 
-/* ==== 1. Правила рисования (учтено «Готово») ==== */
+/* ===== 1. Правила рисования (включая «Готово») ===== */
 const RULES={
   works:[
     {when:r=>eq(r[K.work],"да"),  shape:"circle", color:C.yes, label:"Работает: Да"},
@@ -68,24 +101,23 @@ const RULES={
   ]
 };
 
-/* ==== 2. Утилиты ==== */
+/* ===== 2. Утилиты ===== */
 const eq=(v,s)=>String(v??"").trim().toLowerCase()===s;
 const esc=s=>String(s??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
 const debounce=(fn,ms=200)=>{let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms)}};
 const now=()=>Date.now();
 
-/* ==== 3. Карта ==== */
+/* ===== 3. Карта ===== */
 const map=L.map("map",{zoomControl:false}).setView(CENTER,ZOOM);
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map);
 L.control.zoom({position:"topright"}).addTo(map);
 
-/* ==== 4. Кластеры по КОМБО (shape|color) ==== */
+/* ===== 4. Кластеры по КОМБО (shape|color) ===== */
 function makeCluster(fixedColor){
   return L.markerClusterGroup({
     maxClusterRadius:60,
     iconCreateFunction: cl => {
       const n=cl.getChildCount(), s=Math.min(Math.max(30+n/10,30),50);
-      // цвет кластера фиксируем = цвет группы (не считаем «частоты»)
       return L.divIcon({
         html:`<div style="background:${fixedColor};border:2px solid ${C.cluster};border-radius:50%;width:${s}px;height:${s}px;display:flex;align-items:center;justify-content:center;font-weight:700">${n}</div>`,
         className:"cluster", iconSize:[s,s], iconAnchor:[s/2,s/2]
@@ -93,7 +125,7 @@ function makeCluster(fixedColor){
     }
   });
 }
-// реестр кластеров: key="shape|color" -> MarkerClusterGroup
+// key="shape|color" -> MarkerClusterGroup
 const clusterRegistry=new Map();
 function getCluster(shape,color){
   const key=shape+"|"+color;
@@ -108,7 +140,7 @@ function clearAllClusters(){
   clusterRegistry.clear();
 }
 
-/* ==== 5. Иконки с переиспользованием ==== */
+/* ===== 5. Иконки с кэшем ===== */
 const iconCache=new Map();
 function getIcon(shape,color){
   const key=shape+"|"+color;
@@ -121,11 +153,11 @@ function getIcon(shape,color){
   iconCache.set(key,ic); return ic;
 }
 
-/* ==== 6. Состояние ==== */
+/* ===== 6. Состояние ===== */
 let mode="works";
 let data=[], view=[];
 
-/* ==== 7. Загрузка с кэшем ==== */
+/* ===== 7. Загрузка с кэшем ===== */
 (async function init(){
   try{
     const cached=readCache();
@@ -135,6 +167,7 @@ let data=[], view=[];
       data=Array.isArray(json)?json:(json.data||[]);
       writeCache(data);
     }
+    // предобработка
     data=data.map(r=>{
       const lat=+r[K.lat], lng=+r[K.lng];
       return {...r, _lat:lat, _lng:lng,
@@ -163,18 +196,17 @@ function writeCache(rows){
   try{ localStorage.setItem("stops_cache_v1", JSON.stringify({ts:now(), rows})); }catch{}
 }
 
-/* ==== 8. Отрисовка (кластер = shape|color) ==== */
+/* ===== 8. Отрисовка ===== */
 function draw(){
-  clearAllClusters(); // полное обновление групп (режим/поиск могли изменить набор ключей)
+  clearAllClusters();
   const rules=RULES[mode];
 
-  // батч-добавление: key -> [markers]
+  // батчи: key(shape|color) -> [markers]
   const batches=new Map();
 
   for(const r of view){
     const {shape,color}=rules.find(x=>x.when(r));
-    const ic=getIcon(shape,color);
-    const m=L.marker([r._lat,r._lng],{icon:ic}); m.__c=color;
+    const m=L.marker([r._lat,r._lng],{icon:getIcon(shape,color)}); m.__c=color;
     m.bindPopup(
       `<b>ID:</b> ${esc(r[K.id])}<br><b>Название:</b> ${esc(r[K.stop])}<br><b>Улица:</b> ${esc(r[K.street])}<br><b>Направление:</b> ${esc(r[K.dir])}<br><b>Район:</b> ${esc(r[K.dist])}<br><b>Работает:</b> ${esc(r[K.work])}<br><b>Согласование:</b> ${esc(r[K.agr])}<br><b>Отвод:</b> ${esc(r[K.all])}<br><b>Тех усл.:</b> ${esc(r[K.tech])}<br><b>Статус уст.:</b> ${esc(r[K.inst])}<br><b>Примечание:</b> ${esc(r[K.note])}`
     );
@@ -197,7 +229,7 @@ function fit(rows){
   map.fitBounds(b.pad(0.05),{animate:false});
 }
 
-/* ==== 9. Поиск (дебаунс) ==== */
+/* ===== 9. Поиск ===== */
 const q=document.getElementById("q");
 const applySearch=()=>{
   const s=(q.value||"").trim().toLowerCase();
@@ -207,13 +239,13 @@ const applySearch=()=>{
 document.getElementById("find").onclick=applySearch;
 q.addEventListener("input", debounce(applySearch,200), {passive:true});
 
-/* ==== 10. Режимы ==== */
+/* ===== 10. Режимы ===== */
 const btnW=document.getElementById("modeWorks");
 const btnS=document.getElementById("modeStatus");
 btnW.onclick=()=>{ mode="works"; btnW.classList.add("active"); btnS.classList.remove("active"); draw(); };
 btnS.onclick=()=>{ mode="status"; btnS.classList.add("active"); btnW.classList.remove("active"); draw(); };
 
-/* ==== 11. Легенда ==== */
+/* ===== 11. Легенда ===== */
 const ov=document.getElementById("ov"), panel=document.getElementById("panel");
 document.getElementById("legendBtn").onclick=()=>{ setLegend(); togglePanel(); };
 ov.onclick=togglePanel;
@@ -244,7 +276,7 @@ function setLegend(){
   }
 }
 
-/* ==== 12. Верхняя панель (выезд) ==== */
+/* ===== 12. Верхняя панель (выезд) ===== */
 const bar=document.getElementById("bar"), hover=document.getElementById("hover");
 let t; const show=()=>{clearTimeout(t);bar.classList.add("show")}, hide=()=>bar.classList.remove("show");
 hover.addEventListener("mouseenter", show); hover.addEventListener("mouseleave", ()=>t=setTimeout(hide,1200));
