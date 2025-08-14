@@ -10,22 +10,30 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
 
 <style>
-  html,body,#map{height:100%;margin:0}
+  :root { --controls-height: 72px; }
+  html,body{height:100%;margin:0}
+  /* Карта занимает весь экран, но оставляет место под нижние кнопки */
+  #map{
+    position:fixed; top:0; left:0; right:0;
+    bottom:var(--controls-height);
+    background:#f2f2f2;
+    z-index:1;
+  }
 
-  /* верхняя выезжающая строка поиска */
-  #bar{position:fixed;left:0;right:0;top:-64px;display:flex;gap:8px;justify-content:center;padding:8px;background:rgba(255,255,255,.95);box-shadow:0 2px 6px rgba(0,0,0,.2);transition:.25s;z-index:10}
-  #hover{position:fixed;left:0;right:0;top:0;height:10px;z-index:11}
+  /* Верхняя выезжающая строка поиска */
+  #bar{position:fixed;left:0;right:0;top:-64px;display:flex;gap:8px;justify-content:center;padding:8px;background:rgba(255,255,255,.95);box-shadow:0 2px 6px rgba(0,0,0,.2);transition:.25s;z-index:20}
+  #hover{position:fixed;left:0;right:0;top:0;height:10px;z-index:21}
   #bar.show{top:0}
   #bar input,#bar button{font:14px/1.2 system-ui;padding:8px 10px;border:1px solid #ccc;border-radius:8px}
   #bar button{background:#007bff;color:#fff;border:none;cursor:pointer}
 
-  /* Кнопки снизу — ВСЕГДА СВЕРХУ */
+  /* Кнопки снизу — ВСЕГДА видны и выше всех */
   .controls{
     position:fixed;bottom:0;left:0;right:0;
     display:flex;gap:8px;justify-content:center;align-items:center;
     background:rgba(255,255,255,.97);padding:10px 8px;
     box-shadow:0 -2px 8px rgba(0,0,0,.25);
-    z-index:9999; /* самый верхний слой */
+    z-index:9999;
   }
   .btn{
     background:#007bff;color:#fff;border:none;border-radius:10px;padding:10px 14px;
@@ -33,28 +41,27 @@
   }
   .btn.active{background:#0056b3;box-shadow:0 0 0 2px #fff,0 0 0 4px #0056b3}
 
-  /* Оверлей/панель — ниже кнопок */
-  .overlay{
-    position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:9000;
-  }
+  /* Панель легенды/оверлей ниже кнопок */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:9000}
   .panel{
-    position:fixed;left:50%;transform:translateX(-50%);bottom:-100%;
-    width:92%;max-width:520px;max-height:70%;
-    background:#fff;border-radius:18px 18px 0 0;
-    padding:16px;box-shadow:0 -4px 16px rgba(0,0,0,.25);
-    transition:bottom .35s;z-index:9500;overflow:auto;
+    position:fixed;left:50%;transform:translateX(-50%);
+    bottom:calc(var(--controls-height) + 8px);
+    width:92%;max-width:520px;max-height:60%;
+    background:#fff;border-radius:18px; padding:16px;
+    box-shadow:0 8px 24px rgba(0,0,0,.25);
+    display:none; z-index:9500; overflow:auto;
   }
-  .panel.active{ bottom: var(--controls-height, 72px); } /* отступ под кнопки */
+  .panel.active{ display:block; }
 
   .legend .row{display:flex;align-items:center;gap:10px;margin:8px 0}
   .ico{width:22px;height:22px;border:1px solid #000;display:inline-block;border-radius:50%}
   .sq{border-radius:4px}
   .tri{border:none;width:0;height:0;border-left:11px solid transparent;border-right:11px solid transparent}
 
-  /* Подсказка-сводка внизу (над кнопками) */
+  /* Подсказка-сводка поверх карты */
   .hint{
     position:fixed;left:50%;transform:translateX(-50%);
-    bottom: calc(var(--controls-height, 72px) + 8px); /* над контролами */
+    bottom:calc(var(--controls-height) + 8px);
     background:rgba(255,255,255,.98);
     border:1px solid #e5e7eb;border-radius:12px;
     box-shadow:0 6px 20px rgba(0,0,0,.18);
@@ -73,22 +80,21 @@
   .sq-sm{display:inline-block; width:12px; height:12px; border-radius:3px; border:1px solid #000; margin-right:6px; vertical-align:-2px;}
   .tri-sm{display:inline-block; width:0; height:0; border-left:6px solid transparent; border-right:6px solid transparent; margin-right:6px; vertical-align:-1px;}
 
-  @media (max-width:600px){
-    #bar input{width:60%}
-    .btn{padding:9px 12px;font-size:13px}
-  }
+  /* Баннер ошибок */
+  .err{position:fixed;top:12px;left:50%;transform:translateX(-50%);
+    background:#ffebee;color:#b71c1c;border:1px solid #ffcdd2;
+    padding:8px 12px;border-radius:10px;z-index:20000;display:none;font:14px/1.2 system-ui}
 </style>
 </head>
 <body>
+  <div id="map"></div>
+
   <!-- выезжающий поиск -->
   <div id="hover"></div>
   <div id="bar">
     <input id="q" placeholder="ID или Название остановки"/>
     <button id="find">🔍 Поиск</button>
   </div>
-
-  <!-- карта -->
-  <div id="map"></div>
 
   <!-- всегда видимые кнопки -->
   <div class="controls" id="controls">
@@ -108,243 +114,305 @@
   <div class="overlay" id="ov"></div>
   <div class="panel" id="panel"><div id="legend" class="legend"></div></div>
 
-<script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-<script>
-/* ===== 0. Конфиг ===== */
-const DATA_URL = "https://script.google.com/macros/s/AKfycbykrfvSNKlLMLRPbuxuUtqD_-o1chp-wIIW6-OFW-BjabiBw9QIDUtNwmvxXj9x4igx/exec";
-const CENTER=[51.128,71.43], ZOOM=12, CACHE_TTL_MS=60_000;
+  <!-- баннер ошибок -->
+  <div class="err" id="err"></div>
 
-const K={ id:"ID Остановки", stop:"Название остановок", street:"Наименование улицы", dir:"Направление", dist:"Район", lat:"широта", lng:"Долгота", work:"Работает", agr:"Согласование сит. схем", all:"Отвод", tech:"Тех условие", inst:"Статус установки", note:"Примечание" };
-const C={ yes:"#00c853", no:"#ff1744", na:"#9e9e9e", blue:"#2196f3", yellow:"#ffeb3b", orange:"#ff9800", violet:"#8e24aa", green:"#2e7d32", cluster:"#555" };
+<script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js" defer></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" defer></script>
+<script defer>
+document.addEventListener('DOMContentLoaded', () => {
+  /* ===== Конфиг ===== */
+  const DATA_URL = "https://script.google.com/macros/s/AKfycbykrfvSNKlLMLRPbuxuUtqD_-o1chp-wIIW6-OFW-BjabiBw9QIDUtNwmvxXj9x4igx/exec";
+  const CENTER=[51.128,71.43], ZOOM=12, CACHE_TTL_MS=60000;
+  const K={ id:"ID Остановки", stop:"Название остановок", street:"Наименование улицы", dir:"Направление", dist:"Район", lat:"широта", lng:"Долгота", work:"Работает", agr:"Согласование сит. схем", all:"Отвод", tech:"Тех условие", inst:"Статус установки", note:"Примечание" };
+  const C={ yes:"#00c853", no:"#ff1744", na:"#9e9e9e", blue:"#2196f3", yellow:"#ffeb3b", orange:"#ff9800", violet:"#8e24aa", green:"#2e7d32", cluster:"#555" };
+  const RULES={
+    works:[
+      {when:r=>eq(r[K.work],"да"),  shape:"circle", color:C.yes, label:"Работает: Да"},
+      {when:r=>eq(r[K.work],"нет"), shape:"circle", color:C.no,  label:"Работает: Нет"},
+      {when:_=>true,                shape:"circle", color:C.na,  label:"Пусто/Не установлен"},
+    ],
+    status:[
+      {when:r=>eq(r[K.inst],"готово"),    shape:"circle",   color:C.yes,    legend:"Готово"},
+      {when:r=>eq(r[K.inst],"фундамент"), shape:"triangle", color:C.violet, legend:"Фундамент"},
+      {when:r=>eq(r[K.inst],"сеть"),      shape:"triangle", color:C.orange, legend:"Сеть"},
+      {when:r=>eq(r[K.inst],"каркас"),    shape:"triangle", color:C.green,  legend:"Каркас"},
+      {when:r=>eq(r[K.agr],"согласован"), shape:"square",   color:C.blue,   legend:"Согласован"},
+      {when:r=>eq(r[K.all],"да"),         shape:"square",   color:C.yellow, legend:"Отвод"},
+      {when:r=>eq(r[K.tech],"да"),        shape:"square",   color:C.orange, legend:"Тех усл."},
+      {when:r=>eq(r[K.work],"да"),        shape:"circle",   color:C.yes,    legend:"Да (fallback)"},
+      {when:r=>eq(r[K.work],"нет"),       shape:"circle",   color:C.no,     legend:"Нет (fallback)"},
+      {when:_=>true,                      shape:"circle",   color:C.na,     legend:"Пусто (fallback)"},
+    ]
+  };
 
-/* ===== 1. Правила рисования (включая «Готово») ===== */
-const RULES={
-  works:[
-    {when:r=>eq(r[K.work],"да"),  shape:"circle", color:C.yes, label:"Работает: Да"},
-    {when:r=>eq(r[K.work],"нет"), shape:"circle", color:C.no,  label:"Работает: Нет"},
-    {when:_=>true,                shape:"circle", color:C.na,  label:"Пусто/Не установлен"},
-  ],
-  status:[
-    {when:r=>eq(r[K.inst],"готово"),    shape:"circle",   color:C.yes,    legend:"Готово"},
-    {when:r=>eq(r[K.inst],"фундамент"), shape:"triangle", color:C.violet, legend:"Фундамент"},
-    {when:r=>eq(r[K.inst],"сеть"),      shape:"triangle", color:C.orange, legend:"Сеть"},
-    {when:r=>eq(r[K.inst],"каркас"),    shape:"triangle", color:C.green,  legend:"Каркас"},
-    {when:r=>eq(r[K.agr],"согласован"), shape:"square",   color:C.blue,   legend:"Согласован"},
-    {when:r=>eq(r[K.all],"да"),         shape:"square",   color:C.yellow, legend:"Отвод"},
-    {when:r=>eq(r[K.tech],"да"),        shape:"square",   color:C.orange, legend:"Тех усл."},
-    {when:r=>eq(r[K.work],"да"),        shape:"circle",   color:C.yes,    legend:"Да (fallback)"},
-    {when:r=>eq(r[K.work],"нет"),       shape:"circle",   color:C.no,     legend:"Нет (fallback)"},
-    {when:_=>true,                      shape:"circle",   color:C.na,     legend:"Пусто (fallback)"},
-  ]
-};
+  const eq=(v,s)=>String(v==null?"":v).trim().toLowerCase()===s;
+  const esc=s=>String(s==null?"":s)
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+  const debounce=(fn,ms=200)=>{let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms)}};
 
-/* ===== 2. Утилиты ===== */
-const eq=(v,s)=>String(v??"").trim().toLowerCase()===s;
-const esc=s=>String(s??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
-const debounce=(fn,ms=200)=>{let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms)}};
-const now=()=>Date.now();
+  /* ===== Сообщения об ошибке ===== */
+  const err = (msg) => {
+    const el = document.getElementById('err');
+    el.textContent = msg;
+    el.style.display = 'block';
+  };
 
-/* ===== 3. Карта ===== */
-const map=L.map("map",{zoomControl:false}).setView(CENTER,ZOOM);
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map);
-L.control.zoom({position:"topright"}).addTo(map);
-
-/* ===== 4. Кластеры по КОМБО (shape|color) ===== */
-function makeCluster(fixedColor){
-  return L.markerClusterGroup({
-    maxClusterRadius:60,
-    iconCreateFunction: cl => {
-      const n=cl.getChildCount(), s=Math.min(Math.max(30+n/10,30),50);
-      return L.divIcon({
-        html:`<div style="background:${fixedColor};border:2px solid ${C.cluster};border-radius:50%;width:${s}px;height:${s}px;display:flex;align-items:center;justify-content:center;font-weight:700">${n}</div>`,
-        className:"cluster", iconSize:[s,s], iconAnchor:[s/2,s/2]
-      });
-    }
-  });
-}
-const clusterRegistry=new Map();
-function getCluster(shape,color){
-  const key=shape+"|"+color;
-  if(clusterRegistry.has(key)) return clusterRegistry.get(key);
-  const g=makeCluster(color);
-  clusterRegistry.set(key,g);
-  map.addLayer(g);
-  return g;
-}
-function clearAllClusters(){
-  for(const g of clusterRegistry.values()) map.removeLayer(g);
-  clusterRegistry.clear();
-}
-
-/* ===== 5. Иконки с кэшем ===== */
-const iconCache=new Map();
-function getIcon(shape,color){
-  const key=shape+"|"+color;
-  if(iconCache.has(key)) return iconCache.get(key);
-  let html;
-  if(shape==="circle")   html=`<div style="width:18px;height:18px;border-radius:50%;background:${color};border:1px solid #000;box-shadow:0 0 3px rgba(0,0,0,.4)"></div>`;
-  if(shape==="square")   html=`<div style="width:18px;height:18px;border-radius:4px;background:${color};border:1px solid #000;box-shadow:0 0 3px rgba(0,0,0,.4)"></div>`;
-  if(shape==="triangle") html=`<div style="width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-bottom:18px solid ${color};filter:drop-shadow(0 0 3px rgba(0,0,0,.4))"></div>`;
-  const ic=L.divIcon({html,className:"",iconSize:[18,18],iconAnchor:[9,9]});
-  iconCache.set(key,ic); return ic;
-}
-
-/* ===== 6. Состояние ===== */
-let mode="works";
-let data=[], view=[];
-let hintClosed=false;
-
-/* ===== 7. Загрузка с кэшем ===== */
-(async function init(){
+  /* ===== Карта (инициализация защищена try/catch) ===== */
+  let map;
   try{
-    const cached=readCache();
-    if(cached){ data=cached; } else {
-      const r=await fetch(DATA_URL,{cache:"no-store"});
-      const json=await r.json();
-      data=Array.isArray(json)?json:(json.data||[]);
-      writeCache(data);
-    }
-    // предобработка
-    data=data.map(r=>{
-      const lat=+r[K.lat], lng=+r[K.lng];
-      return {...r, _lat:lat, _lng:lng,
-        _id:String(r[K.id]??""), _nm:String(r[K.stop]??""),
-        _work:String(r[K.work]??"").trim().toLowerCase(),
-        _inst:String(r[K.inst]??"").trim().toLowerCase(),
-        _agr:String(r[K.agr]??"").trim().toLowerCase(),
-        _all:String(r[K.all]??"").trim().toLowerCase(),
-        _tech:String(r[K.tech]??"").trim().toLowerCase(),
-      };
-    }).filter(r=>!Number.isNaN(r._lat)&&!Number.isNaN(r._lng));
+    map = L.map("map",{zoomControl:false}).setView(CENTER,ZOOM);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map);
+    L.control.zoom({position:"topright"}).addTo(map);
+  }catch(e){
+    err("Ошибка инициализации карты. Проверьте подключение Leaflet.");
+    console.error(e);
+    return;
+  }
 
-    // синхронизируем высоту кнопок (влияние на панель/подсказку)
-    syncControlsHeight();
-
-    view=data; draw(); fit(view);
-  }catch(e){ console.error(e); alert("Не удалось загрузить данные"); }
-})();
-function readCache(){
-  try{
-    const raw=localStorage.getItem("stops_cache_v1");
-    if(!raw) return null;
-    const {ts,rows}=JSON.parse(raw);
-    if(now()-ts>CACHE_TTL_MS) return null;
-    return rows;
-  }catch{ return null; }
-}
-function writeCache(rows){
-  try{ localStorage.setItem("stops_cache_v1", JSON.stringify({ts:now(), rows})); }catch{}
-}
-
-/* ===== 8. Отрисовка + сводка ===== */
-function draw(){
-  clearAllClusters();
-  const rules=RULES[mode];
-
-  const batches=new Map(); // key -> [markers]
-  const stats=new Map();   // label -> count
-
-  for(const r of view){
-    const rule=rules.find(x=>x.when(r));
-    const {shape,color}=rule;
-
-    const m=L.marker([r._lat,r._lng],{icon:getIcon(shape,color)});
-    m.bindPopup(
-      `<b>ID:</b> ${esc(r[K.id])}<br><b>Название:</b> ${esc(r[K.stop])}<br><b>Улица:</b> ${esc(r[K.street])}<br><b>Направление:</b> ${esc(r[K.dir])}<br><b>Район:</b> ${esc(r[K.dist])}<br><b>Работает:</b> ${esc(r[K.work])}<br><b>Согласование:</b> ${esc(r[K.agr])}<br><b>Отвод:</b> ${esc(r[K.all])}<br><b>Тех усл.:</b> ${esc(r[K.tech])}<br><b>Статус уст.:</b> ${esc(r[K.inst])}<br><b>Примечание:</b> ${esc(r[K.note])}`
-    );
+  /* ===== Кластеры по shape|color ===== */
+  function makeCluster(fixedColor){
+    return L.markerClusterGroup({
+      maxClusterRadius:60,
+      iconCreateFunction: cl => {
+        const n=cl.getChildCount(), s=Math.min(Math.max(30+n/10,30),50);
+        return L.divIcon({
+          html:'<div style="background:'+fixedColor+';border:2px solid '+C.cluster+';border-radius:50%;width:'+s+'px;height:'+s+'px;display:flex;align-items:center;justify-content:center;font-weight:700">'+n+'</div>',
+          className:"cluster", iconSize:[s,s], iconAnchor:[s/2,s/2]
+        });
+      }
+    });
+  }
+  const clusterRegistry=new Map();
+  function getCluster(shape,color){
     const key=shape+"|"+color;
-    if(!batches.has(key)) batches.set(key, []);
-    batches.get(key).push(m);
+    if(clusterRegistry.has(key)) return clusterRegistry.get(key);
+    const g=makeCluster(color);
+    clusterRegistry.set(key,g);
+    map.addLayer(g);
+    return g;
+  }
+  function clearAllClusters(){
+    for(const g of clusterRegistry.values()) map.removeLayer(g);
+    clusterRegistry.clear();
+  }
+
+  /* ===== Иконки с кэшем ===== */
+  const iconCache=new Map();
+  function getIcon(shape,color){
+    const key=shape+"|"+color;
+    if(iconCache.has(key)) return iconCache.get(key);
+    let html="";
+    if(shape==="circle")   html='<div style="width:18px;height:18px;border-radius:50%;background:'+color+';border:1px solid #000;box-shadow:0 0 3px rgba(0,0,0,.4)"></div>';
+    if(shape==="square")   html='<div style="width:18px;height:18px;border-radius:4px;background:'+color+';border:1px solid #000;box-shadow:0 0 3px rgba(0,0,0,.4)"></div>';
+    if(shape==="triangle") html='<div style="width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-bottom:18px solid '+color+';filter:drop-shadow(0 0 3px rgba(0,0,0,.4))"></div>';
+    const ic=L.divIcon({html:html,className:"",iconSize:[18,18],iconAnchor:[9,9]});
+    iconCache.set(key,ic); return ic;
+  }
+
+  /* ===== Состояние ===== */
+  let mode="works";
+  let data=[], view=[];
+  let hintClosed=false;
+
+  /* ===== Синхронизация высоты кнопок ===== */
+  function syncControlsHeight(){
+    const controls = document.getElementById('controls');
+    if(!controls) return;
+    const h = Math.ceil(controls.getBoundingClientRect().height + 10);
+    document.documentElement.style.setProperty('--controls-height', h + 'px');
+  }
+  syncControlsHeight();
+  window.addEventListener('resize', syncControlsHeight);
+
+  /* ===== Загрузка с кэшем ===== */
+  (async function init(){
+    try{
+      const cached = readCache();
+      if(cached){ data=cached; } else {
+        const r=await fetch(DATA_URL,{cache:"no-store"});
+        if(!r.ok){ throw new Error("HTTP "+r.status); }
+        const json=await r.json();
+        data = Array.isArray(json) ? json : (json.data||[]);
+        writeCache(data);
+      }
+      data=data.map(r=>{
+        const lat=parseFloat(r[K.lat]), lng=parseFloat(r[K.lng]);
+        return {...r, _lat:lat, _lng:lng,
+          _id:String(r[K.id]||""), _nm:String(r[K.stop]||""),
+          _work:String(r[K.work]||"").trim().toLowerCase(),
+          _inst:String(r[K.inst]||"").trim().toLowerCase(),
+          _agr:String(r[K.agr]||"").trim().toLowerCase(),
+          _all:String(r[K.all]||"").trim().toLowerCase(),
+          _tech:String(r[K.tech]||"").trim().toLowerCase(),
+        };
+      }).filter(r=>!isNaN(r._lat)&&!isNaN(r._lng));
+
+      view=data; draw(); fit(view);
+    }catch(e){
+      err("Не удалось загрузить данные (GAS/API). Откройте консоль.");
+      console.error(e);
+    }
+  })();
+
+  function readCache(){
+    try{
+      const raw=localStorage.getItem("stops_cache_v1");
+      if(!raw) return null;
+      const v=JSON.parse(raw);
+      if(Date.now()-v.ts > CACHE_TTL_MS) return null;
+      return v.rows;
+    }catch{return null}
+  }
+  function writeCache(rows){
+    try{ localStorage.setItem("stops_cache_v1", JSON.stringify({ts:Date.now(), rows})); }catch{}
+  }
+
+  /* ===== Отрисовка + сводка ===== */
+  function draw(){
+    clearAllClusters();
+    const rules=RULES[mode];
+    const batches=new Map(); // key -> [markers]
+    const stats=new Map();   // label -> count
+
+    for(const r of view){
+      const rule=rules.find(x=>x.when(r));
+      const shape=rule.shape, color=rule.color;
+
+      const m=L.marker([r._lat,r._lng],{icon:getIcon(shape,color)});
+      m.bindPopup(
+        '<b>ID:</b> '+esc(r[K.id])+'<br>'+
+        '<b>Название:</b> '+esc(r[K.stop])+'<br>'+
+        '<b>Улица:</b> '+esc(r[K.street])+'<br>'+
+        '<b>Направление:</b> '+esc(r[K.dir])+'<br>'+
+        '<b>Район:</b> '+esc(r[K.dist])+'<br>'+
+        '<b>Работает:</b> '+esc(r[K.work])+'<br>'+
+        '<b>Согласование:</b> '+esc(r[K.agr])+'<br>'+
+        '<b>Отвод:</b> '+esc(r[K.all])+'<br>'+
+        '<b>Тех усл.:</b> '+esc(r[K.tech])+'<br>'+
+        '<b>Статус уст.:</b> '+esc(r[K.inst])+'<br>'+
+        '<b>Примечание:</b> '+esc(r[K.note])
+      );
+
+      const key=shape+"|"+color;
+      if(!batches.has(key)) batches.set(key, []);
+      batches.get(key).push(m);
+
+      if(mode==="works"){
+        const label = r._work==="да" ? "Да" : r._work==="нет" ? "Нет" : "Пусто";
+        stats.set(label, (stats.get(label)||0)+1);
+      }else{
+        const label = rule.legend;
+        stats.set(label, (stats.get(label)||0)+1);
+      }
+    }
+
+    for(const [key, markers] of batches){
+      const [shape,color]=key.split("|");
+      const g=getCluster(shape,color);
+      g.addLayers(markers);
+    }
+
+    updateHint(stats);
+  }
+
+  function fit(rows){
+    if(!rows.length) return;
+    const b=L.latLngBounds(rows.map(r=>[r._lat,r._lng]));
+    map.fitBounds(b.pad(0.05),{animate:false});
+  }
+
+  /* ===== Поиск ===== */
+  const q=document.getElementById("q");
+  const applySearch=()=>{
+    const s=(q.value||"").trim().toLowerCase();
+    view = s ? data.filter(r=>r._id.toLowerCase().includes(s)||r._nm.toLowerCase().includes(s)) : data;
+    draw(); fit(view);
+  };
+  document.getElementById("find").onclick=applySearch;
+  q.addEventListener("input", debounce(applySearch,220), {passive:true});
+
+  /* ===== Режимы ===== */
+  const btnW=document.getElementById("modeWorks");
+  const btnS=document.getElementById("modeStatus");
+  btnW.onclick=()=>{ mode="works"; btnW.classList.add("active"); btnS.classList.remove("active"); draw(); setHintTitle(); };
+  btnS.onclick=()=>{ mode="status"; btnS.classList.add("active"); btnW.classList.remove("active"); draw(); setHintTitle(); };
+
+  /* ===== Легенда ===== */
+  const ov=document.getElementById("ov"), panel=document.getElementById("panel");
+  document.getElementById("legendBtn").onclick=()=>{ setLegend(); togglePanel(true); };
+  ov.onclick=()=>togglePanel(false);
+  function togglePanel(show){
+    panel.style.display = show ? "block" : "none";
+    ov.style.display    = show ? "block" : "none";
+  }
+  function setLegend(){
+    const box=document.getElementById("legend");
+    if(mode==="works"){
+      box.innerHTML=
+        '<div class="row"><span class="ico" style="background:'+C.yes+'"></span> Работает: Да</div>'+
+        '<div class="row"><span class="ico" style="background:'+C.no+'"></span> Работает: Нет</div>'+
+        '<div class="row"><span class="ico" style="background:'+C.na+'"></span> Пусто / Не установлен</div>';
+    }else{
+      box.innerHTML=
+        '<div class="row"><span class="ico" style="background:'+C.yes+'"></span> Готово</div>'+
+        '<div class="row"><span class="tri" style="border-bottom:22px solid '+C.violet+'"></span> Фундамент</div>'+
+        '<div class="row"><span class="tri" style="border-bottom:22px solid '+C.orange+'"></span> Сеть</div>'+
+        '<div class="row"><span class="tri" style="border-bottom:22px solid '+C.green+'"></span> Каркас</div>'+
+        '<hr/>'+
+        '<div class="row"><span class="ico sq" style="background:'+C.blue+'"></span> Согласован</div>'+
+        '<div class="row"><span class="ico sq" style="background:'+C.yellow+'"></span> Отвод</div>'+
+        '<div class="row"><span class="ico sq" style="background:'+C.orange+'"></span> Тех усл.</div>'+
+        '<hr/>'+
+        '<div class="row"><span class="ico" style="background:'+C.yes+'"></span> Да (fallback)</div>'+
+        '<div class="row"><span class="ico" style="background:'+C.no+'"></span> Нет (fallback)</div>'+
+        '<div class="row"><span class="ico" style="background:'+C.na+'"></span> Пусто (fallback)</div>';
+    }
+  }
+
+  /* ===== Верхняя панель (поиск) ===== */
+  const bar=document.getElementById("bar"), hoverDiv=document.getElementById("hover");
+  let t; const show=()=>{clearTimeout(t);bar.classList.add("show")}, hide=()=>bar.classList.remove("show");
+  hoverDiv.addEventListener("mouseenter", show); hoverDiv.addEventListener("mouseleave", ()=>t=setTimeout(hide,1200));
+  hoverDiv.addEventListener("touchstart", show, {passive:true}); bar.addEventListener("mouseleave", ()=>t=setTimeout(hide,1200));
+
+  /* ===== Подсказка-сводка ===== */
+  const hintEl=document.getElementById("hint");
+  const hintTitle=document.getElementById("hintTitle");
+  const hintGrid=document.getElementById("hintGrid");
+  document.getElementById("hintClose").onclick=()=>{ hintClosed=true; hintEl.style.display="none"; };
+  function setHintTitle(){ hintTitle.textContent = (mode==="works" ? "Работает" : "Статус"); }
+  function updateHint(statsMap){
+    if(hintClosed) return;
+    setHintTitle();
+    const orderWorks=["Да","Нет","Пусто"];
+    const orderStatus=["Готово","Фундамент","Сеть","Каркас","Согласован","Отвод","Тех усл.","Да (fallback)","Нет (fallback)","Пусто (fallback)"];
+    const parts=[];
+    const push=(label,count)=>{ parts.push('<div>'+label+'</div><div><b>'+count+'</b></div>'); };
 
     if(mode==="works"){
-      const label = eq(r[K.work],"да") ? "Да" : eq(r[K.work],"нет") ? "Нет" : "Пусто";
-      stats.set(label, (stats.get(label)||0)+1);
+      const colorOf = l => l==="Да"?C.yes:l==="Нет"?C.no:C.na;
+      orderWorks.forEach(l => push('<span class="dot" style="background:'+colorOf(l)+'"></span>'+l, statsMap.get(l)||0));
     }else{
-      const label = rule.legend;
-      stats.set(label, (stats.get(label)||0)+1);
+      const badge = l => {
+        if(l==="Готово")     return '<span class="dot"   style="background:'+C.yes+'"></span>'+l;
+        if(l==="Фундамент")  return '<span class="tri-sm" style="border-bottom:12px solid '+C.violet+'"></span>'+l;
+        if(l==="Сеть")       return '<span class="tri-sm" style="border-bottom:12px solid '+C.orange+'"></span>'+l;
+        if(l==="Каркас")     return '<span class="tri-sm" style="border-bottom:12px solid '+C.green+'"></span>'+l;
+        if(l==="Согласован") return '<span class="sq-sm"  style="background:'+C.blue+'"></span>'+l;
+        if(l==="Отвод")      return '<span class="sq-sm"  style="background:'+C.yellow+'"></span>'+l;
+        if(l==="Тех усл.")   return '<span class="sq-sm"  style="background:'+C.orange+'"></span>'+l;
+        if(l.indexOf('Да')>-1)  return '<span class="dot" style="background:'+C.yes+'"></span>'+l;
+        if(l.indexOf('Нет')>-1) return '<span class="dot" style="background:'+C.no+'"></span>'+l;
+        return '<span class="dot" style="background:'+C.na+'"></span>'+l;
+      };
+      orderStatus.forEach(l => push(badge(l), statsMap.get(l)||0));
     }
+    hintGrid.innerHTML = parts.join('');
+    hintEl.style.display = "block";
   }
-
-  for(const [key, markers] of batches){
-    const [shape,color]=key.split("|");
-    const g=getCluster(shape,color);
-    g.addLayers(markers);
-  }
-
-  updateHint(stats);
-}
-
-function fit(rows){
-  if(!rows.length) return;
-  const b=L.latLngBounds(rows.map(r=>[r._lat,r._lng]));
-  map.fitBounds(b.pad(0.05),{animate:false});
-}
-
-/* ===== 9. Поиск ===== */
-const q=document.getElementById("q");
-const applySearch=()=>{
-  const s=(q.value||"").trim().toLowerCase();
-  view = s ? data.filter(r=>r._id.toLowerCase().includes(s)||r._nm.toLowerCase().includes(s)) : data;
-  draw(); fit(view);
-};
-document.getElementById("find").onclick=applySearch;
-q.addEventListener("input", debounce(applySearch,200), {passive:true});
-
-/* ===== 10. Режимы ===== */
-const btnW=document.getElementById("modeWorks");
-const btnS=document.getElementById("modeStatus");
-btnW.onclick=()=>{ mode="works"; btnW.classList.add("active"); btnS.classList.remove("active"); draw(); setHintTitle(); };
-btnS.onclick=()=>{ mode="status"; btnS.classList.add("active"); btnW.classList.remove("active"); draw(); setHintTitle(); };
-
-/* ===== 11. Легенда ===== */
-const ov=document.getElementById("ov"), panel=document.getElementById("panel");
-document.getElementById("legendBtn").onclick=()=>{ setLegend(); togglePanel(); };
-ov.onclick=togglePanel;
-function togglePanel(){ const on=panel.classList.toggle("active"); ov.style.display=on?"block":"none"; }
-function setLegend(){
-  const box=document.getElementById("legend");
-  if(mode==="works"){
-    box.innerHTML=`
-      <div class="row"><span class="ico" style="background:${C.yes}"></span> Работает: Да</div>
-      <div class="row"><span class="ico" style="background:${C.no}"></span> Работает: Нет</div>
-      <div class="row"><span class="ico" style="background:${C.na}"></span> Пусто / Не установлен</div>
-    `;
-  }else{
-    box.innerHTML=`
-      <div class="row"><span class="ico" style="background:${C.yes}"></span> Готово</div>
-      <div class="row"><span class="tri" style="border-bottom:22px solid ${C.violet}"></span> Фундамент</div>
-      <div class="row"><span class="tri" style="border-bottom:22px solid ${C.orange}"></span> Сеть</div>
-      <div class="row"><span class="tri" style="border-bottom:22px solid ${C.green}"></span> Каркас</div>
-      <hr/>
-      <div class="row"><span class="ico sq" style="background:${C.blue}"></span> Согласован</div>
-      <div class="row"><span class="ico sq" style="background:${C.yellow}"></span> Отвод</div>
-      <div class="row"><span class="ico sq" style="background:${C.orange}"></span> Тех усл.</div>
-      <hr/>
-      <div class="row"><span class="ico" style="background:${C.yes}"></span> Да (fallback)</div>
-      <div class="row"><span class="ico" style="background:${C.no}"></span> Нет (fallback)</div>
-      <div class="row"><span class="ico" style="background:${C.na}"></span> Пусто (fallback)</div>
-    `;
-  }
-}
-
-/* ===== 12. Верхняя панель (выезд) ===== */
-const bar=document.getElementById("bar"), hover=document.getElementById("hover");
-let t; const show=()=>{clearTimeout(t);bar.classList.add("show")}, hide=()=>bar.classList.remove("show");
-hover.addEventListener("mouseenter", show); hover.addEventListener("mouseleave", ()=>t=setTimeout(hide,1200));
-hover.addEventListener("touchstart", show, {passive:true}); bar.addEventListener("mouseleave", ()=>t=setTimeout(hide,1200));
-
-/* ===== 13. Подсказка-сводка ===== */
-const hintEl=document.getElementById("hint");
-const hintTitle=document.getElementById("hintTitle");
-const hintGrid=document.getElementById("hintGrid");
-document.getElementById("hintClose").onclick=()=>{ hintClosed=true; hintEl.style.display="none"; };
-
-function setHintTitle(){ hintTitle.textContent = (mode==="works" ? "Работает" : "Статус"); }
-
-function updateHint(statsMap){
-  if(hintClosed) return;
-  setHintTitle();
-
-  const orderWorks=["Да","Нет","Пусто"];
-  const orderStatus=["Готово","Фундамент","Сеть","Каркас","Согласован","Отво]()
+});
+</script>
+</body>
+</html>
