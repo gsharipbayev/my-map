@@ -47,7 +47,7 @@ const CENTER=[51.128,71.43], ZOOM=12, CACHE_TTL_MS=60_000;
 const K={ id:"ID Остановки", stop:"Название остановок", street:"Наименование улицы", dir:"Направление", dist:"Район", lat:"широта", lng:"Долгота", work:"Работает", agr:"Согласование сит. схем", all:"Отвод", tech:"Тех условие", inst:"Статус установки", note:"Примечание" };
 const C={ yes:"#00c853", no:"#ff1744", na:"#9e9e9e", blue:"#2196f3", yellow:"#ffeb3b", orange:"#ff9800", violet:"#8e24aa", green:"#2e7d32", cluster:"#555" };
 
-/* ==== 1. Правила рисования ==== */
+/* ==== 1. Правила рисования (учтено «Готово») ==== */
 const RULES={
   works:[
     {when:r=>eq(r[K.work],"да"),  shape:"circle", color:C.yes, label:"Работает: Да"},
@@ -55,17 +55,13 @@ const RULES={
     {when:_=>true,                shape:"circle", color:C.na,  label:"Пусто/Не установлен"},
   ],
   status:[
-    // NEW: Готово -> ярко-зелёный круг
     {when:r=>eq(r[K.inst],"готово"),    shape:"circle",   color:C.yes,    legend:"Статус: Готово"},
-    // Треугольники
     {when:r=>eq(r[K.inst],"фундамент"), shape:"triangle", color:C.violet, legend:"Статус: Фундамент"},
     {when:r=>eq(r[K.inst],"сеть"),      shape:"triangle", color:C.orange, legend:"Статус: Сеть"},
     {when:r=>eq(r[K.inst],"каркас"),    shape:"triangle", color:C.green,  legend:"Статус: Каркас"},
-    // Квадраты
     {when:r=>eq(r[K.agr],"согласован"), shape:"square",   color:C.blue,   legend:"Согласование: Согласован"},
     {when:r=>eq(r[K.all],"да"),         shape:"square",   color:C.yellow, legend:"Отвод: Да"},
     {when:r=>eq(r[K.tech],"да"),        shape:"square",   color:C.orange, legend:"Тех условие: Да"},
-    // Fallback к "Работает"
     {when:r=>eq(r[K.work],"да"),        shape:"circle",   color:C.yes,    legend:"Работает: Да (fallback)"},
     {when:r=>eq(r[K.work],"нет"),       shape:"circle",   color:C.no,     legend:"Работает: Нет (fallback)"},
     {when:_=>true,                      shape:"circle",   color:C.na,     legend:"Пусто/Не установлен (fallback)"},
@@ -78,23 +74,41 @@ const esc=s=>String(s??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replac
 const debounce=(fn,ms=200)=>{let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms)}};
 const now=()=>Date.now();
 
-/* ==== 3. Карта/кластеры ==== */
+/* ==== 3. Карта ==== */
 const map=L.map("map",{zoomControl:false}).setView(CENTER,ZOOM);
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map);
 L.control.zoom({position:"topright"}).addTo(map);
-const mkCluster=()=>L.markerClusterGroup({
-  maxClusterRadius:60,
-  iconCreateFunction:cl=>{
-    const n=cl.getChildCount(), s=Math.min(Math.max(30+n/10,30),50);
-    const freq={}; let top=C.na, topN=0;
-    cl.getAllChildMarkers().forEach(m=>{const c=m.__c||C.na;freq[c]=(freq[c]||0)+1;if(freq[c]>topN){topN=freq[c];top=c;}});
-    return L.divIcon({html:`<div style="background:${top};border:2px solid ${C.cluster};border-radius:50%;width:${s}px;height:${s}px;display:flex;align-items:center;justify-content:center;font-weight:700">${n}</div>`,className:"cluster",iconSize:[s,s],iconAnchor:[s/2,s/2]});
-  }
-});
-const groups={circle:mkCluster(),square:mkCluster(),triangle:mkCluster()};
-Object.values(groups).forEach(g=>map.addLayer(g));
 
-/* ==== 4. Иконки с переиспользованием ==== */
+/* ==== 4. Кластеры по КОМБО (shape|color) ==== */
+function makeCluster(fixedColor){
+  return L.markerClusterGroup({
+    maxClusterRadius:60,
+    iconCreateFunction: cl => {
+      const n=cl.getChildCount(), s=Math.min(Math.max(30+n/10,30),50);
+      // цвет кластера фиксируем = цвет группы (не считаем «частоты»)
+      return L.divIcon({
+        html:`<div style="background:${fixedColor};border:2px solid ${C.cluster};border-radius:50%;width:${s}px;height:${s}px;display:flex;align-items:center;justify-content:center;font-weight:700">${n}</div>`,
+        className:"cluster", iconSize:[s,s], iconAnchor:[s/2,s/2]
+      });
+    }
+  });
+}
+// реестр кластеров: key="shape|color" -> MarkerClusterGroup
+const clusterRegistry=new Map();
+function getCluster(shape,color){
+  const key=shape+"|"+color;
+  if(clusterRegistry.has(key)) return clusterRegistry.get(key);
+  const g=makeCluster(color);
+  clusterRegistry.set(key,g);
+  map.addLayer(g);
+  return g;
+}
+function clearAllClusters(){
+  for(const g of clusterRegistry.values()) map.removeLayer(g);
+  clusterRegistry.clear();
+}
+
+/* ==== 5. Иконки с переиспользованием ==== */
 const iconCache=new Map();
 function getIcon(shape,color){
   const key=shape+"|"+color;
@@ -107,11 +121,11 @@ function getIcon(shape,color){
   iconCache.set(key,ic); return ic;
 }
 
-/* ==== 5. Состояние ==== */
+/* ==== 6. Состояние ==== */
 let mode="works";
 let data=[], view=[];
 
-/* ==== 6. Загрузка с кэшем ==== */
+/* ==== 7. Загрузка с кэшем ==== */
 (async function init(){
   try{
     const cached=readCache();
@@ -121,10 +135,10 @@ let data=[], view=[];
       data=Array.isArray(json)?json:(json.data||[]);
       writeCache(data);
     }
-    // предобработка (1 раз)
     data=data.map(r=>{
       const lat=+r[K.lat], lng=+r[K.lng];
-      return {...r, _lat:lat, _lng:lng, _id:String(r[K.id]??""), _nm:String(r[K.stop]??""),
+      return {...r, _lat:lat, _lng:lng,
+        _id:String(r[K.id]??""), _nm:String(r[K.stop]??""),
         _work:String(r[K.work]??"").trim().toLowerCase(),
         _inst:String(r[K.inst]??"").trim().toLowerCase(),
         _agr:String(r[K.agr]??"").trim().toLowerCase(),
@@ -136,7 +150,6 @@ let data=[], view=[];
     view=data; draw(); fit(view);
   }catch(e){ console.error(e); alert("Не удалось загрузить данные"); }
 })();
-
 function readCache(){
   try{
     const raw=localStorage.getItem("stops_cache_v1");
@@ -150,26 +163,32 @@ function writeCache(rows){
   try{ localStorage.setItem("stops_cache_v1", JSON.stringify({ts:now(), rows})); }catch{}
 }
 
-/* ==== 7. Отрисовка ==== */
+/* ==== 8. Отрисовка (кластер = shape|color) ==== */
 function draw(){
-  Object.values(groups).forEach(g=>g.clearLayers());
+  clearAllClusters(); // полное обновление групп (режим/поиск могли изменить набор ключей)
   const rules=RULES[mode];
-  const batchCircle=[], batchSquare=[], batchTriangle=[];
+
+  // батч-добавление: key -> [markers]
+  const batches=new Map();
 
   for(const r of view){
-    const rule=rules.find(x=>x.when(r));
-    const ic=getIcon(rule.shape, rule.color);
-    const m=L.marker([r._lat,r._lng],{icon:ic}); m.__c=rule.color;
+    const {shape,color}=rules.find(x=>x.when(r));
+    const ic=getIcon(shape,color);
+    const m=L.marker([r._lat,r._lng],{icon:ic}); m.__c=color;
     m.bindPopup(
       `<b>ID:</b> ${esc(r[K.id])}<br><b>Название:</b> ${esc(r[K.stop])}<br><b>Улица:</b> ${esc(r[K.street])}<br><b>Направление:</b> ${esc(r[K.dir])}<br><b>Район:</b> ${esc(r[K.dist])}<br><b>Работает:</b> ${esc(r[K.work])}<br><b>Согласование:</b> ${esc(r[K.agr])}<br><b>Отвод:</b> ${esc(r[K.all])}<br><b>Тех усл.:</b> ${esc(r[K.tech])}<br><b>Статус уст.:</b> ${esc(r[K.inst])}<br><b>Примечание:</b> ${esc(r[K.note])}`
     );
-    if(rule.shape==="circle") batchCircle.push(m);
-    else if(rule.shape==="square") batchSquare.push(m);
-    else batchTriangle.push(m);
+    const key=shape+"|"+color;
+    if(!batches.has(key)) batches.set(key, []);
+    batches.get(key).push(m);
   }
-  if(batchCircle.length) groups.circle.addLayers(batchCircle);
-  if(batchSquare.length) groups.square.addLayers(batchSquare);
-  if(batchTriangle.length) groups.triangle.addLayers(batchTriangle);
+
+  // добавляем пачками в соответствующий кластер
+  for(const [key, markers] of batches){
+    const [shape,color]=key.split("|");
+    const g=getCluster(shape,color);
+    g.addLayers(markers);
+  }
 }
 
 function fit(rows){
@@ -178,7 +197,7 @@ function fit(rows){
   map.fitBounds(b.pad(0.05),{animate:false});
 }
 
-/* ==== 8. Поиск (дебаунс) ==== */
+/* ==== 9. Поиск (дебаунс) ==== */
 const q=document.getElementById("q");
 const applySearch=()=>{
   const s=(q.value||"").trim().toLowerCase();
@@ -188,13 +207,13 @@ const applySearch=()=>{
 document.getElementById("find").onclick=applySearch;
 q.addEventListener("input", debounce(applySearch,200), {passive:true});
 
-/* ==== 9. Режимы ==== */
+/* ==== 10. Режимы ==== */
 const btnW=document.getElementById("modeWorks");
 const btnS=document.getElementById("modeStatus");
 btnW.onclick=()=>{ mode="works"; btnW.classList.add("active"); btnS.classList.remove("active"); draw(); };
 btnS.onclick=()=>{ mode="status"; btnS.classList.add("active"); btnW.classList.remove("active"); draw(); };
 
-/* ==== 10. Легенда ==== */
+/* ==== 11. Легенда ==== */
 const ov=document.getElementById("ov"), panel=document.getElementById("panel");
 document.getElementById("legendBtn").onclick=()=>{ setLegend(); togglePanel(); };
 ov.onclick=togglePanel;
@@ -225,7 +244,7 @@ function setLegend(){
   }
 }
 
-/* ==== 11. Верхняя панель (выезд) ==== */
+/* ==== 12. Верхняя панель (выезд) ==== */
 const bar=document.getElementById("bar"), hover=document.getElementById("hover");
 let t; const show=()=>{clearTimeout(t);bar.classList.add("show")}, hide=()=>bar.classList.remove("show");
 hover.addEventListener("mouseenter", show); hover.addEventListener("mouseleave", ()=>t=setTimeout(hide,1200));
